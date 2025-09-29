@@ -23,10 +23,10 @@ services:
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     healthcheck:
-      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 10s
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "broker:29092", "--list"]
+      interval: 5s
       timeout: 10s
-      retries: 10
+      retries: 3
 
   app:
     build: .
@@ -34,4 +34,4 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
