@@ -1,4 +1,4 @@
-# Open-source Technologies / Stream Mining project (prototype)
+# Open-source Technologies / Stream Mining joint project
 
 ## Project
 
