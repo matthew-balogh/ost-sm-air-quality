@@ -58,7 +58,7 @@ public class Main {
                 rowNum++;
                 ProducerRecord<String, String> csvRecord = new ProducerRecord<>(topic, Integer.toString(rowNum), line);
                 RecordMetadata metadata = producer.send(csvRecord).get();
-//                System.out.printf("Sent row %d to topic %s partition %d offset %d\n", rowNum, metadata.topic(), metadata.partition(), metadata.offset());
+                System.out.printf("Sent row %d to topic %s partition %d offset %d\n", rowNum, metadata.topic(), metadata.partition(), metadata.offset());
                 producer.flush();
                 Thread.sleep(1000); // 1 second
             }
