@@ -16,4 +16,4 @@ Instructions and project rules: [doc](https://docs.google.com/document/d/1fuBle3
 
 ## Work products
 
-Literature review and documentation: [Overleaf](https://www.overleaf.com/5532248263qrzcmdnjwxyg#07c302)
+Literature review and documentation: [Overleaf](https://www.overleaf.com/read/pzhvdkcjkwdh#23edfa)
