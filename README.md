@@ -14,6 +14,8 @@ Instructions and project rules: [doc](https://docs.google.com/document/d/1fuBle3
 * Lahmar, Abderraouf
 * Nagy, Zsuzsanna
 
-## Work products
+## Structure of the repository
 
-Literature review and documentation: [Overleaf](https://www.overleaf.com/read/pzhvdkcjkwdh#23edfa)
+Visit the tasks at the [GitHub Board](https://github.com/users/matthew-balogh/projects/5).
+
+Visit the project documentation in [Documentation.md](Documentation.md)
