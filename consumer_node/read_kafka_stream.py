@@ -38,6 +38,7 @@ def message_callback(topic, key, value):
     print(f"[CALLBACK] Topic: {topic}, Key: {key}, Value: {value}")
 
 # Use foreachBatch to process each micro-batch and call the callback for each row
+# PySpark does not support a true driver-side callback for each message in a distributed streaming job.
 def process_batch(df, epoch_id):
     rows = df.collect()
     for row in rows:
