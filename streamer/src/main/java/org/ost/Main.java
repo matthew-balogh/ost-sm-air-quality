@@ -15,7 +15,7 @@ public class Main {
     static String topic = "sensor-data";
     
     // List of topics based on CSV columns (excluding Date, Time, and empty columns)
-    private static final String[] SENSOR_TOPICS = {
+    public static final String[] SENSOR_TOPICS = {
         "co_gt",           // CO(GT)
         "pt08_s1_co",      // PT08.S1(CO)
         "nmhc_gt",         // NMHC(GT)
