@@ -16,6 +16,9 @@ spark.sparkContext.setLogLevel("WARN")
 # Kafka parameters
 kafka_bootstrap_servers = "localhost:9092"  # Change if needed
 
+# Count-based window size (default 8). Can be overridden via env var WINDOW_COUNT
+WINDOW_COUNT = int(os.getenv("WINDOW_COUNT", "8"))
+
 # Subscribe to all sensor topics (comma-separated)
 topics = ",".join(SENSOR_TOPICS)
 
@@ -37,12 +40,33 @@ messages = kafka_df.selectExpr(
 def message_callback(topic, key, value):
     print(f"[CALLBACK] Topic: {topic}, Key: {key}, Value: {value}")
 
+# Callback for when a topic's buffer reaches WINDOW_COUNT messages
+def window_callback(topic, records):
+    print(f"[WINDOW] Topic: {topic}, Size: {len(records)}")
+    for r in records:
+        message_callback(r['topic'], r['key'], r['value'])
+
 # Use foreachBatch to process each micro-batch and call the callback for each row
 # PySpark does not support a true driver-side callback for each message in a distributed streaming job.
 def process_batch(df, epoch_id):
     rows = df.collect()
+    # Maintain per-topic buffers across micro-batches
+    if not hasattr(process_batch, "buffers"):
+        process_batch.buffers = {}
+    buffers = process_batch.buffers
     for row in rows:
-        message_callback(row['topic'], row['key'], row['value'])
+        topic = row['topic']
+        topic_buffer = buffers.setdefault(topic, [])
+        topic_buffer.append({
+            'topic': row['topic'],
+            'key': row['key'],
+            'value': row['value']
+        })
+        # Emit in fixed-size chunks of WINDOW_COUNT
+        while len(topic_buffer) >= WINDOW_COUNT:
+            chunk = topic_buffer[:WINDOW_COUNT]
+            window_callback(topic, chunk)
+            del topic_buffer[:WINDOW_COUNT]
 
 query = messages.writeStream \
     .outputMode("append") \
