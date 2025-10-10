@@ -48,10 +48,10 @@ class KafkaStreamReader:
                 'key': row['key'],
                 'value': row['value']
             })
-            while len(topic_buffer) >= self.WINDOW_COUNT:
-                chunk = topic_buffer[:self.WINDOW_COUNT]
-                self.window_callback(topic, chunk)
-                del topic_buffer[:self.WINDOW_COUNT]
+            if len(topic_buffer) > self.WINDOW_COUNT:
+                topic_buffer.pop(0)  # Remove the oldest record
+            # Always invoke callback with the current window (sliding)
+            self.window_callback(topic, list(topic_buffer))
 
     def run(self):
         query = self.messages.writeStream \
