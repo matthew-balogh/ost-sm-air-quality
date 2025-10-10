@@ -2,75 +2,74 @@ from pyspark.sql import SparkSession
 import os
 import sys
 from sensor_topics import SENSOR_TOPICS
+from anomly_detector.anomaly_detector import InWindowAnomalyDetector
 
-os.environ['PYSPARK_PYTHON'] = sys.executable
-os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
-# Initialize SparkSession
-spark = SparkSession.builder \
-    .appName("KafkaStreamReader") \
-    .getOrCreate()
+class KafkaStreamReader:
+    def __init__(self):
+        self.observers = []
+        os.environ['PYSPARK_PYTHON'] = sys.executable
+        os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 
-# Set log level to reduce verbosity
-spark.sparkContext.setLogLevel("WARN")
+        self.spark = SparkSession.builder \
+            .appName("KafkaStreamReader") \
+            .getOrCreate()
+        self.spark.sparkContext.setLogLevel("WARN")
+        self.kafka_bootstrap_servers = "localhost:9092"
+        self.WINDOW_COUNT = int(os.getenv("WINDOW_COUNT", "8"))
+        self.topics = ",".join(SENSOR_TOPICS)
+        self.kafka_df = self.spark.readStream \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", self.kafka_bootstrap_servers) \
+            .option("subscribe", self.topics) \
+            .load()
+        self.messages = self.kafka_df.selectExpr(
+            "CAST(topic AS STRING) as topic",
+            "CAST(key AS STRING) as key",
+            "CAST(value AS STRING) as value"
+        )
 
-# Kafka parameters
-kafka_bootstrap_servers = "localhost:9092"  # Change if needed
+    def window_callback(self, topic, records):
+        # Notify all observers for this topic
+        method_name = f'on_new_window_{topic}'
+        for observer in self.observers:
+            if hasattr(observer, method_name):
+                getattr(observer, method_name)(records)
 
-# Count-based window size (default 8). Can be overridden via env var WINDOW_COUNT
-WINDOW_COUNT = int(os.getenv("WINDOW_COUNT", "8"))
+    def process_batch(self, df, epoch_id):
+        rows = df.collect()
+        if not hasattr(self, "buffers"):
+            self.buffers = {}
+        buffers = self.buffers
+        for row in rows:
+            topic = row['topic']
+            topic_buffer = buffers.setdefault(topic, [])
+            topic_buffer.append({
+                'topic': row['topic'],
+                'key': row['key'],
+                'value': row['value']
+            })
+            while len(topic_buffer) >= self.WINDOW_COUNT:
+                chunk = topic_buffer[:self.WINDOW_COUNT]
+                self.window_callback(topic, chunk)
+                del topic_buffer[:self.WINDOW_COUNT]
 
-# Subscribe to all sensor topics (comma-separated)
-topics = ",".join(SENSOR_TOPICS)
+    def run(self):
+        query = self.messages.writeStream \
+            .outputMode("append") \
+            .foreachBatch(self.process_batch) \
+            .start()
+        query.awaitTermination()
 
-# Read from Kafka
-kafka_df = spark.readStream \
-    .format("kafka") \
-    .option("kafka.bootstrap.servers", kafka_bootstrap_servers) \
-    .option("subscribe", topics) \
-    .load()
+    def register_observer(self, observer):
+        if observer not in self.observers:
+            self.observers.append(observer)
 
-# Convert the binary 'key' and 'value' columns to string, and include topic name
-messages = kafka_df.selectExpr(
-    "CAST(topic AS STRING) as topic",
-    "CAST(key AS STRING) as key",
-    "CAST(value AS STRING) as value"
-)
+    def remove_observer(self, observer):
+        if observer in self.observers:
+            self.observers.remove(observer)
 
-# Callback function to handle each message
-def message_callback(topic, key, value):
-    print(f"[CALLBACK] Topic: {topic}, Key: {key}, Value: {value}")
-
-# Callback for when a topic's buffer reaches WINDOW_COUNT messages
-def window_callback(topic, records):
-    print(f"[WINDOW] Topic: {topic}, Size: {len(records)}")
-    for r in records:
-        message_callback(r['topic'], r['key'], r['value'])
-
-# Use foreachBatch to process each micro-batch and call the callback for each row
-# PySpark does not support a true driver-side callback for each message in a distributed streaming job.
-def process_batch(df, epoch_id):
-    rows = df.collect()
-    # Maintain per-topic buffers across micro-batches
-    if not hasattr(process_batch, "buffers"):
-        process_batch.buffers = {}
-    buffers = process_batch.buffers
-    for row in rows:
-        topic = row['topic']
-        topic_buffer = buffers.setdefault(topic, [])
-        topic_buffer.append({
-            'topic': row['topic'],
-            'key': row['key'],
-            'value': row['value']
-        })
-        # Emit in fixed-size chunks of WINDOW_COUNT
-        while len(topic_buffer) >= WINDOW_COUNT:
-            chunk = topic_buffer[:WINDOW_COUNT]
-            window_callback(topic, chunk)
-            del topic_buffer[:WINDOW_COUNT]
-
-query = messages.writeStream \
-    .outputMode("append") \
-    .foreachBatch(process_batch) \
-    .start()
-
-query.awaitTermination()
+if __name__ == "__main__":
+    reader = KafkaStreamReader()
+    detector = InWindowAnomalyDetector(verb=True)
+    reader.register_observer(detector)
+    reader.run()

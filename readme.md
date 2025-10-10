@@ -1,20 +1,21 @@
-# Streamer Monorepo
+# Open-source Technologies / Stream Mining joint project
 
-## How to Run the Streamer
+## Project
 
-1. **Make the script executable (only needed once):**
-   ```sh
-   chmod +x start-streaming.sh
-   ```
+Open-source Technologies & Stream Mining
 
-2. **Start the streaming stack:**
-   ```sh
-   ./start-streaming.sh
-   ```
-   This will automatically start all services defined in the Docker Compose setup inside the `streamer/` directory.
-   - **`org.ost.LocalCsvConsumer` — _Test utility for consuming data in Java. Not used in production; for local testing only._**
+Instructions and project rules: [doc](https://docs.google.com/document/d/1fuBle3d4tmhY9IHqBDA9KwckhSqOCugGWldIe8CeRHc/edit?tab=t.0#heading=h.mzrt1sfgv63y)
 
-## Notes
-- Run all development and build commands from the `streamer/` directory unless using the root-level `start-streaming.sh` script.
-- Ensure Docker and Docker Compose are installed on your system.
-- For PySpark Kafka streaming, use the correct Spark-Kafka connector version matching your Spark installation.
+## Team members
+
+* Albazzal, Houmam
+* Balogh, Máté
+* Földvári, Ádám
+* Lahmar, Abderraouf
+* Nagy, Zsuzsanna
+
+## Structure of the repository
+
+Visit the tasks at the [GitHub Board](https://github.com/users/matthew-balogh/projects/5).
+
+Visit the project documentation in [Documentation.md](Documentation.md)
