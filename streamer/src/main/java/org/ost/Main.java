@@ -84,8 +84,7 @@ public class Main {
                     for (int i = 0; i < SENSOR_TOPICS.length; i++) {
                         String sensorValue = values[SENSOR_COLUMN_INDICES[i]].trim();
                             String key = (values[0] + " " + values[1]);
-                            String message = sensorValue;
-                            
+                            String message = String.valueOf(Double.parseDouble(sensorValue.replace(',', '.')));
                             ProducerRecord<String, String> sensorRecord = new ProducerRecord<>(SENSOR_TOPICS[i], key, message);
                             RecordMetadata metadata = producer.send(sensorRecord).get();
                             System.out.printf("Sent %s=%s to topic %s partition %d offset %d\n", 
