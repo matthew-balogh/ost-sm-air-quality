@@ -35,6 +35,25 @@ We are planning to split the time-ordered dataset at a certain data and consider
 * Live dashboard
 * External notifications (optional)
 
+### Architecture design
+
+![](./resources/architecture_design.png)
+
+### Team member responsibilities
+
+| Team member        | Main responsibilities                              |
+| ------------------ | -------------------------------------------------- |
+| Albazzal, Houmam   | Containerization, Data Streamlining                |
+| Balogh, Máté       | Anomaly Detection, Overseeing Pipeline Integration |
+| Földvári, Ádám     | Forecasting                                        |
+| Lahmar, Abderraouf | Statistics, Global and Local Model Integration     |
+| Nagy, Zsuzsanna    | Dashboarding                                       |
+
+**Other not yet assigned tasks:**
+
+- Persisting Data and Managing Database
+- Alerting (optional)
+
 ## III. Background and Literature Review
 
 ### Stream mining
