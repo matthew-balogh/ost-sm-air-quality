@@ -11,5 +11,6 @@ This project demonstrates how to consume multiple Kafka topics using PySpark Str
 - 
 ```
 How to run???
+ pip3 install -r requirements.txt
 spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1 read_kafka_stream.py
 ```=
