@@ -1,3 +1,4 @@
+from listeners.sliding_window_listener import SlidingWindowListener
 
 class InWindowAnomalyDetector():
 
