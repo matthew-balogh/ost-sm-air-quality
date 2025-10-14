@@ -11,10 +11,11 @@ class MovingStatistics:
         self.alpha = alpha;
 
     def meanUpdate(self, new_sample):
+
         if self.method == "sequential":
             self.mean = self.mean + (new_sample - self.mean)/self.count;
         
-        if self.method == "exponential":
+        elif self.method == "exponential":
             self.mean = (1 - self.alpha) * self.mean + self.alpha * new_sample;
         
         else:
@@ -24,7 +25,7 @@ class MovingStatistics:
     def SquaredMeanUpdate(self, new_sample):
         if self.method == "sequential":
             self.squaredMean = self.squaredMean + (new_sample**2 - self.squaredMean)/self.count;
-        if self.method == "exponential":
+        elif self.method == "exponential":
             self.squaredMean = (1 - self.alpha) * self.squaredMean + self.alpha * new_sample**2;
         else:
             raise NotImplementedError("This method is not implemented.")
@@ -71,7 +72,6 @@ class WindowSequentialStatistics:
 
     def UpdateAll(self,new_sample):
         self.count += 1;
-        print( (self.count % self.window_size) - 1)
         self.window[(self.count % self.window_size) - 1] = new_sample;
 
         if self.count >= self.window_size:
