@@ -123,10 +123,16 @@ class SimpleTDigest:
             i += 1
         self.centroids = merged
 
+
+
+
     def percentile(self, q):
         """Approximate the q-th percentile"""
+        
         if not self.centroids:
             return None
+        
+
         target = q / 100 * self.total_weight
         cumulative = 0
         for c in self.centroids:
