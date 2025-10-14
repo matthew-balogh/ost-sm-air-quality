@@ -1,21 +1,27 @@
-# Open-source Technologies / Stream Mining joint project
+# Open-source Technologies & Stream Mining Joint Project
 
-## Project
+This repository is for the joint project of subjects **Open-source Technologies** and **Stream Mining** of the *Data Science MSc program* at *ELTE*.
 
-Open-source Technologies & Stream Mining
-
-Instructions and project rules: [doc](https://docs.google.com/document/d/1fuBle3d4tmhY9IHqBDA9KwckhSqOCugGWldIe8CeRHc/edit?tab=t.0#heading=h.mzrt1sfgv63y)
+Project guidelines: [Open guidelines](https://docs.google.com/document/d/1fuBle3d4tmhY9IHqBDA9KwckhSqOCugGWldIe8CeRHc/edit?tab=t.0#heading=h.mzrt1sfgv63y)
 
 ## Team members
 
-* Albazzal, Houmam
-* Balogh, Máté
-* Földvári, Ádám
-* Lahmar, Abderraouf
-* Nagy, Zsuzsanna
+* Albazzal, Houmam [(🐙 dolorsy)](https://github.com/dolorsy)
+* Balogh, Máté [(🐙 matthew-balogh)](https://github.com/matthew-balogh)
+* Földvári, Ádám [(🐙 25FAdam)](https://github.com/25FAdam)
+* Lahmar, Abderraouf [(🐙 abderraouf-000)](https://github.com/abderraouf-000)
+* Nagy, Zsuzsanna [(🐙 NZsuzsi)](https://github.com/NZsuzsi)
 
 ## Structure of the repository
 
-Visit the tasks at the [GitHub Board](https://github.com/users/matthew-balogh/projects/5).
+Tasks are managed at the [GitHub Board](https://github.com/users/matthew-balogh/projects/5).
 
-Visit the project documentation in [Documentation.md](Documentation.md)
+The documentation can be found in [Documentation.md](Documentation.md). It includes project planning, literature review, data science and development documentations.
+
+## Important elements from the documentation
+
+Here you can find the important parts of the documentation that were extracted to be easily accessed here.
+
+### Architecture design
+
+![](./resources/architecture_design.png)
