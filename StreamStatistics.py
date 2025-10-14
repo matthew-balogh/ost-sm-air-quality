@@ -2,6 +2,7 @@ import numpy as np
 import bisect
 
 class MovingStatistics:
+
     def __init__(self, method = "sequential", alpha = 0.3):
         self.mean = 0;
         self.squaredMean = 0;
@@ -20,7 +21,6 @@ class MovingStatistics:
         
         else:
             raise NotImplementedError("This method is not implemented.")
-
     
     def SquaredMeanUpdate(self, new_sample):
         if self.method == "sequential":
@@ -29,7 +29,6 @@ class MovingStatistics:
             self.squaredMean = (1 - self.alpha) * self.squaredMean + self.alpha * new_sample**2;
         else:
             raise NotImplementedError("This method is not implemented.")
-
     
     def VarianceUpdate(self):
         if self.count >= 2:
@@ -40,12 +39,6 @@ class MovingStatistics:
         self.meanUpdate(new_sample);
         self.SquaredMeanUpdate(new_sample);
         self.VarianceUpdate();
-
-
-
-
-
-
 
 class WindowSequentialStatistics:
 
@@ -59,16 +52,12 @@ class WindowSequentialStatistics:
 
     def meanUpdate(self):
         self.mean = np.mean(self.window);
-        
 
     def SquaredMeanUpdate(self):
         self.squaredMean = np.mean(self.window**2);
 
     def VarianceUpdate(self):
         self.variance = self.squaredMean - self.mean**2;
-
-
-
 
     def UpdateAll(self,new_sample):
         self.count += 1;
@@ -82,15 +71,12 @@ class WindowSequentialStatistics:
             print("N is still smaller than window size");
 
 
-
-
 ## when a new sample arrives, find the closest centrois using distance.
 ## Check the compression limit ???()
 ## if it doesn’t violate the compression limit, merge it: new_mean, new weight.
 ## Merging centroids: scan through centroids in order:
 ## if adjacent centroids with a combined weight (number of sample) <= delta * total weight merge them.
 ## then update the mean of the merged centroid.
-
 class SimpleTDigest:
 
     def __init__(self, delta=0.01):
@@ -123,9 +109,6 @@ class SimpleTDigest:
             i += 1
         self.centroids = merged
 
-
-
-
     def percentile(self, q):
         """Approximate the q-th percentile"""
         
@@ -141,18 +124,10 @@ class SimpleTDigest:
                 return c.mean
         return self.centroids[-1].mean
 
-
-
-
-
 class Centroid:
     def __init__(self, mean, weight=1):
         self.mean = mean
         self.weight = weight
-
-
-
-
 
 
 
@@ -167,6 +142,3 @@ class Centroid:
 #       primaryClass={stat.CO},
 #       url={https://arxiv.org/abs/1902.04023}, 
 # }
-
-
-
