@@ -2,7 +2,8 @@ from pyspark.sql import SparkSession
 import os
 import sys
 from sensor_topics import SENSOR_TOPICS
-from anomly_detector.anomaly_detector import InWindowAnomalyDetector
+from anomaly_detector.anomaly_detector import InWindowAnomalyDetector
+from global_statistics.StreamStatistics import SimpleTDigest
 
 class KafkaStreamReader:
     def __init__(self):
@@ -70,6 +71,9 @@ class KafkaStreamReader:
 
 if __name__ == "__main__":
     reader = KafkaStreamReader()
-    detector = InWindowAnomalyDetector(verb=True)
+    
+    globalStatistics = SimpleTDigest(delta=0.1) # for CO only, FIXME later
+    detector = InWindowAnomalyDetector(globalStatistics=globalStatistics, verb=False)
+
     reader.register_observer(detector)
     reader.run()
