@@ -25,3 +25,13 @@ Here you can find the important parts of the documentation that were extracted t
 ### Architecture design
 
 ![](./resources/architecture_design.png)
+
+### Team member responsibilities
+
+| Team member        | Main responsibilities                               |
+| ------------------ | --------------------------------------------------- |
+| Albazzal, Houmam   | Containerization, Data Streamlining                 |
+| Balogh, Máté       | Anomaly Detection, Pipeline Integration             |
+| Földvári, Ádám     | ML modeling, Forecasting                            |
+| Lahmar, Abderraouf | Calculation and Combination of Statistics, Database |
+| Nagy, Zsuzsanna    | Dashboarding                                        |
