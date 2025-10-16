@@ -35,7 +35,7 @@ We are planning to split the time-ordered dataset at a certain data and consider
 * Live dashboard
 * External notifications (optional)
 
-### Architecture design
+### Architecture diagram
 
 ![](./resources/architecture_design.png)
 
@@ -72,7 +72,7 @@ Dashboard visualization component that periodically fetches the database for new
 
 #### Containerization
 
-Creating standalone self-contained Docker containers for the elements depicted in the architecture design.
+Creating standalone self-contained Docker containers for the elements depicted in the architecture diagram.
 
 #### Data streamlining
 
@@ -96,7 +96,7 @@ Ensuring statistical functions are available at the online analytics phase, alon
 
 #### Database
 
-Creating database schema, along with setting up connections to persist and read data.
+Creating database schema, along with setting up connections to persist and to read data.
 
 #### Dashboarding
 

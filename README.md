@@ -22,7 +22,7 @@ The documentation can be found in [Documentation.md](Documentation.md). It inclu
 
 Here you can find the important parts of the documentation that were extracted to be easily accessed here.
 
-### Architecture design
+### Architecture diagram
 
 ![](./resources/architecture_design.png)
 
