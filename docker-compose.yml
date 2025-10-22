@@ -1,0 +1,18 @@
+version: "3.8"
+
+name: ost-sm-composition
+
+networks:
+  monitoring:
+    driver: bridge
+
+services:
+  influxdb:
+    image: influxdb:2.7
+    container_name: ost-sm-influxdb
+    ports:
+      - 8086:8086
+    env_file: configuration.env
+    restart: always
+    networks:
+      - monitoring

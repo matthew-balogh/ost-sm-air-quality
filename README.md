@@ -18,6 +18,13 @@ Tasks are managed at the [GitHub Board](https://github.com/users/matthew-balogh/
 
 The documentation can be found in [Documentation.md](Documentation.md). It includes project planning, literature review, data science and development documentations.
 
+## Instructions to run
+
+1. Copy `configuration.env.example` as `configuration.env`
+2. Adjust configuration as needed or leave as is
+3. Run `docker-compose up` in the root directory
+4. Open `http://localhost:8086` to visit *Influxdb* UI
+
 ## Important elements from the documentation
 
 Here you can find the important parts of the documentation that were extracted to be easily accessed here.
