@@ -16,3 +16,13 @@ services:
     restart: always
     networks:
       - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ost-sm-grafana
+    ports:
+      - 3000:3000
+    env_file: configuration.env
+    restart: always
+    networks:
+      - monitoring

@@ -23,7 +23,9 @@ The documentation can be found in [Documentation.md](Documentation.md). It inclu
 1. Copy `configuration.env.example` as `configuration.env`
 2. Adjust configuration as needed or leave as is
 3. Run `docker-compose up` in the root directory
-4. Open `http://localhost:8086` to visit *Influxdb* UI
+4. Visit UIs:
+   1. Open `http://localhost:8086` to visit *Influxdb* UI
+   1. Open `http://localhost:3000` to visit *Grafana* UI
 
 ## Important elements from the documentation
 
