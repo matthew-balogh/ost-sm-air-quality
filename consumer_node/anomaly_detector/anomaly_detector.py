@@ -1,110 +1,150 @@
 import numpy as np
+import global_statistics.IQR as IQR
 
+from abc import ABC, abstractmethod
 from listeners.sliding_window_listener import SlidingWindowListener
 from global_statistics.StreamStatistics import SimpleTDigest
 
-np.set_printoptions(legacy='1.25', suppress=True)
 
-# FIXME: move?
-def calc_IQR(data):
-    Q1, Q3 = np.percentile(data, [25, 75])
-    IQR = Q3 - Q1
-    return IQR, Q1, Q3
+class PeakPickingStrategy(ABC):
+    @abstractmethod
+    def predict(self, novelty_score, novelty_fn): pass
+
+    @abstractmethod
+    def update(self, x): pass
+    
+class TDigestOutlierStrategy(PeakPickingStrategy):
+    def __init__(self, delta=.1, iqr_fence=1.5):
+        super().__init__()
+        self.delta = delta
+        self.iqr_fence = iqr_fence
+        self.algorithm_ = SimpleTDigest(delta)
+
+    def predict(self, novelty_score, novelty_fn):
+        q1, q3 = self.algorithm_.percentile(25), self.algorithm_.percentile(75)
+        if (q1 is not None) and (q3 is not None):
+            iqr = (q3 - q1)
+            is_anomalous = (novelty_score > (q3 + self.iqr_fence * iqr))
+        else: is_anomalous = False
+
+        return {
+            "pred": is_anomalous,
+            "type": "global",
+            "message": "Outlier based on the global opinion (T-digest)."
+        }
+    
+    def update(self, x):
+        return self.algorithm_.update(x)
+
+class WindowOutlierStrategy(PeakPickingStrategy):
+    def __init__(self, iqr_fence=1.5):
+        super().__init__()
+        self.iqr_fence = iqr_fence
+
+    def predict(self, novelty_score, novelty_fn):
+        iqr, q1, q3 = IQR.calc(novelty_fn)
+        is_anomalous = (novelty_score > (q3 + self.iqr_fence * iqr))
+
+        return {
+            "pred": is_anomalous,
+            "type": "local",
+            "message": "Outlier based on the local opinion (within the window)."
+        }
+    
+    def update(self, x):
+        pass
+
+class MissingValueStrategy(PeakPickingStrategy):
+    def __init__(self):
+        super().__init__()
+
+    def predict(self, novelty_score, novelty_fn):
+        is_anomalous = np.isnan(novelty_score)
+
+        return {
+            "pred": is_anomalous,
+            "type": "missing",
+            "message": "Value / novelty score is missing."
+        }
+
+    def update(self, x):
+        pass
+    
+def derivateNoveltyFn(input):
+    if np.all(np.isnan(input)):
+        return np.full_like(input, np.nan)
+    
+    median = np.nanmedian(input)
+    nan_mask = np.isnan(input)
+
+    _input = np.where(nan_mask, median, input)
+    diff = np.diff(_input, prepend=input[0])
+    diff[nan_mask] = np.nan
+    diff[diff < 0] = 0
+    return diff
 
 class InWindowAnomalyDetector(SlidingWindowListener):
-
-    def __init__(self, globalStatistics: SimpleTDigest=None, verb=False):
+    def __init__(self,
+                 strategies:list[PeakPickingStrategy]=[WindowOutlierStrategy(), TDigestOutlierStrategy(), MissingValueStrategy()],
+                 novelty_fn=derivateNoveltyFn,
+                 verb=False):
         super().__init__()
+
+        self.strategies = strategies
+        self.novelty_fn = novelty_fn
         self.verb = verb
+
         self.observers = []
-        self.most_recently_left_behind = {}
-        self.globalStatistics = globalStatistics
 
         if self.verb:
             print("-------------------------------")
             print("InWindowAnomalyDetector started")
             print("-------------------------------")
 
-    def prepare(self, topic, data):
+    # TODO: replicate to other methods / merge methods
+    def on_new_window_co_gt(self, data):
+        obs_index = -1
+        topic = data[obs_index]["topic"]
+
+
         if self.verb:
             print(f"Detecting anomalies in Topic (\"{topic}\") within a window with length={len(data)}).")
-
-        mrlf = self.most_recently_left_behind.get(topic, np.nan)
-        values = np.array([float(item['value']) for item in data])
-        values_diff = np.diff(values, prepend=mrlf)
-
-        if self.verb:
-            print(f"\t Sensor measurements in window: {values}")
-            print(f"\t Differences from previous: {values_diff}")
-
-        return values, values_diff
-    
-
-    def predict(self, obs_key, obs_score, values_diff):
-        if self.verb:
-            print(f"Predicting whether [{obs_key} with diff value of {obs_score}] is anomalous within the window.")
-
-        # collect reasons of detection
-        reasons = []
-        is_anomalous_local = False
-        is_anomalous_global = False
-
-        # window statistics
-        values_diff_IQR, values_diff_Q1, values_diff_Q3 = calc_IQR(values_diff)
-
-        # detect peaks (ignore falls for now, FIXME later)
-
-        iqr, q3 = values_diff_IQR, values_diff_Q3
-        is_anomalous_local = (obs_score > 0) & (obs_score > (q3 + 1.5 * iqr))
-
-        if self.globalStatistics:
-            q1, q3 = self.globalStatistics.percentile(25), self.globalStatistics.percentile(75)
-            if (q1 is not None) and (q3 is not None):
-                iqr = (q3 - q1)
-                is_anomalous_global = (obs_score > 0) & (obs_score > (q3 + 1.5 * iqr))
-
-        if is_anomalous_local:
-            reasons.append("The difference measured from previous record is above Q3 + (1.5 * IQR), " \
-                "considering the difference distribution of the window.")
-        elif is_anomalous_global:
-            reasons.append("The global opinion (T-digest) indicates so.")
-
-        pred = (is_anomalous_local or is_anomalous_global)
-
-        return pred, reasons
-
-    def on_new_window_co_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+            print(f"Window elements: " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+            print(f"Predicting whether [{data[obs_index]['key']} with value of {data[obs_index]['value']}] is anomalous.")
 
 
-        obs_topic = data[-1]['topic']
-        obs_key = data[-1]['key']
+        values = np.array([float(item["value"]) for item in data], dtype=float)
+        values = np.where(values == -200, np.nan, values) # TODO: move upstream
+        novelty_scores = self.novelty_fn(values)
+        nov_score = novelty_scores[obs_index]
 
-        values, values_diff = self.prepare(obs_topic, data)
-        obs_diff = values_diff[-1]
+        predictions = []
 
-        is_anomalous, reasons = self.predict(obs_key, obs_diff, values_diff)
+        for s in self.strategies:
+            pred = s.predict(nov_score, novelty_scores)
+            predictions.append(pred)
+            s.update(nov_score)
 
-        if is_anomalous:
+        is_anomalous = any(p["pred"] for p in predictions)
+
+        if (is_anomalous):
+            types = [p["type"] for p in predictions if p["pred"]]
+            reasons = [p["message"] for p in predictions if p["pred"]]
+
             print("")
-            print("\t ---")
-            print(f"\t Observation [{obs_key} with diff value of {obs_diff}] is anomalous.")
-            if len(reasons) > 0:
-                print(f"\t\t Reason(s):")
-                for r in reasons:
-                    print(f"\t\t {r}")
-            print("\t ---")
+            print("\t" + "-"*50)
+            print(f"\t Observation [{data[obs_index]['key']} with novelty score of {nov_score}] is anomalous.")
+            print(f"\n\t\t Reason(s):")
+            for t, r in zip(types, reasons):
+                print(f"\t\t * TYPE: {t}\t| {r}")
+            print("\n\n\t Window:")
+            print("\n\t Values:\t\t", values)
+            print("\n\t Novelty scores:\t", novelty_scores)
+            print("\n\t" + "-"*50)
             print("")
             print("")
 
-        # TODO:
-        # send event to downstream processes (post-processing such as model updating, and live visualization)
-
-        self.most_recently_left_behind[obs_topic] = values[0]
-
-        if self.globalStatistics is not None:
-            self.globalStatistics.update(obs_diff)
+        return is_anomalous, predictions
 
     def on_new_window_pt08_s1_co(self, data):
         if self.verb:
