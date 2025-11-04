@@ -3,3 +3,4 @@ ostvenv
 .DS_Store
 artifacts
 AirQualityUCI.csv
+\outputs
