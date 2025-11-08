@@ -5,10 +5,20 @@ from influxdb_client_3 import (
   InfluxDBClient3, InfluxDBError, Point, WritePrecision,
   WriteOptions, write_client_options)
 
+from dotenv import load_dotenv
+import os
+
+# Load the .env file
+load_dotenv();
+
 host = os.getenv('INFLUX_HOST')
 token = os.getenv('INFLUX_TOKEN')
 database = os.getenv('INFLUX_DATABASE')
 
+client = InfluxDBClient3(host=host,
+                        database=database,
+                        token=token,
+                        )
 ## writing options
 write_options = WriteOptions(batch_size=500,
                                     flush_interval=10_000,
@@ -29,29 +39,36 @@ def error(self, data: str, exception: InfluxDBError):
 def retry(self, data: str, exception: InfluxDBError):
     print(f"Failed retry writing batch: config: {self}, data: {data} retry: {exception}")
 
+wco = write_client_options(success_callback=success,
+                            error_callback=error,
+                            retry_callback=retry,
+                            write_options=write_options)
 
 
-def line_protocol_contruction(table_name,tags,fields,unixTime):
+def write_data(table_name,tags,fields,unixTime):
     '''
-    Fields : A dictionary. {'temp':20.0,...}
+    Table_name : string.
+    tags: dict,
+    Fields: dict,
+    unixTime: Epoch time.
+    '''
+
+    points = {
+          "measurement": table_name,
+          "tags": tags,
+          "fields": fields,
+          "time": unixTime
+          }    
     
+    client.write(points);
+
+
+
+def query_data(query):
     '''
-    # Create an array of points with tags and fields.
-    points = [Point(table_name)
-                .tag("room", "Kitchen")
-                .field("temp", 25.3)
-                .field('hum', 20.2)
-                .field('co', 9)]
-
-
-def write_data(host,token,database,points):
-    with InfluxDBClient3(host=host,
-                            token=token,
-                            database=database,
-                            write_client_options=wco) as client:
-
-        client.write(points, write_precision='s')
-
+    Query : sql query. 
+    '''
+    table = client.query("SELECT * from home WHERE time >= now() - INTERVAL '90 days'")
 
 
 

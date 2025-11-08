@@ -21,6 +21,20 @@ services:
         source: ~/.influxdb3/core/plugins
         target: /var/lib/influxdb3/plugins
 
+
+  influxdb3-explorer:
+    image: influxdata/influxdb3-ui:1.0.0
+    container_name: influxdb3-explorer
+    ports:
+      - "8888:80"     # Admin UI port
+      - "8889:8888"   # Query/UI port
+    depends_on:
+      - influxdb3-core
+    command: --mode=admin
+
+
+
+
 # Data persistence at /var/lib/influxdb3/data
 
 # To use build just run : docker compose -f influx-compose.yml up
@@ -28,5 +42,12 @@ services:
 
 ## E.g: this is the current operator token in my session : apiv3_BP4hoghmK7thvqC8T9tiYdcr48tqLVTGd_36sKhOeivMQ73PlXmN0vjYgyaBFlLajbTNfJRv_6qYknxjtRtPYg
 
-## Setting up authorization
-# 
+## Explorer is running in a different container, we need to use :
+# host.docker.internal:8181
+# Enter operation token as Admin token.
+
+
+## Setting up authorization (change the .env file depending on your operator token)
+
+## Docs:
+# https://docs.influxdata.com/influxdb3/core/reference/client-libraries/v3/python
