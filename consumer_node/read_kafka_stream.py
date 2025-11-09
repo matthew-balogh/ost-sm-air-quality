@@ -74,4 +74,5 @@ if __name__ == "__main__":
     detector = InWindowAnomalyDetector(verb=False)
 
     reader.register_observer(detector)
+    
     reader.run()
