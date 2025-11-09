@@ -55,9 +55,25 @@ Listens to the streamlined data and creates mini batches to call analytical func
 
 Data is then persisted in the database including the online predictions and the original incoming data.
 
+#### Streamlit
+
+Streamlit is used to create dashboard prototypes without the necessity of a database storage and connection. Kafka messages are directly consumed by this component to display simple line charts and anomaly detection related information and alerts.
+
 #### Grafana
 
 Dashboard visualization component that periodically fetches the database for new data to show the latest insights in real-time.
+
+### Modeling diagram
+
+![](./resources/modeling_design.png)
+
+#### Static (offline) zone
+
+In this zone, **static models** are trained and evaluated. These models are then utilized (but not updated) in the *Online zone* as baseline predictors.
+
+#### Real-time (online) zone
+
+In this zone, the raw data is streamlined to simulate real-time data flow. This flow is continuously processed and **models** are created and maintained through **incremental updates** to make better predictions in forecasting and anomaly detection.
 
 
 ### Team member responsibilities

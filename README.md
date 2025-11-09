@@ -26,6 +26,10 @@ Here you can find the important parts of the documentation that were extracted t
 
 ![](./resources/architecture_design.png)
 
+### Modeling diagram
+
+![](./resources/modeling_design.png)
+
 ### Team member responsibilities
 
 | Team member        | Main responsibilities                               |
