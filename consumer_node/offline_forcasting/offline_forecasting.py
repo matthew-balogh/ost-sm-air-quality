@@ -1,12 +1,12 @@
-import os
 import json
+import os
+from collections import deque
+from datetime import datetime
+from threading import Lock, Thread, Event
+
+import joblib
 import numpy as np
 import pandas as pd
-from datetime import datetime
-import joblib
-from threading import Lock, Thread, Event
-from collections import deque
-
 from listeners.sliding_window_listener import SlidingWindowListener
 
 
@@ -16,7 +16,7 @@ class OfflineForecaster(SlidingWindowListener):
     for NO2 using pre-trained models. When the buffer has enough history to
     compute features (lags + rolling windows) the code will automatically
     call predict() after each buffer update. A background thread also calls
-    predict() periodically (default every 5 seconds).
+    predict() periodically (default every 10 seconds).
     """
 
     _instance = None
@@ -74,7 +74,7 @@ class OfflineForecaster(SlidingWindowListener):
         self._load_report()
 
         # prediction control
-        self.prediction_interval = 5
+        self.prediction_interval = 10
         self.last_predictions = None
         self._stop_event = Event()
         self._prediction_thread = Thread(target=self._prediction_loop, daemon=True)
@@ -153,23 +153,31 @@ class OfflineForecaster(SlidingWindowListener):
                 if self.verb:
                     print(f"Error running auto-predict: {e}")
 
-    def _add_time_features(self, idx):
-        if not isinstance(idx, pd.DatetimeIndex):
-            idx = pd.DatetimeIndex([datetime.now()])
+    def _add_time_features(self, n_samples):
+        """
+        Create time features for n_samples, using current time as the latest timestamp.
+        Assumes hourly frequency going backwards.
+        """
+        now = datetime.now()
+        # Create DatetimeIndex going backwards from now (hourly frequency)
+        timestamps = pd.date_range(end=now, periods=n_samples, freq='h')
         return pd.DataFrame({
-            'hour': idx.hour,
-            'dow': idx.dayofweek,
-            'month': idx.month,
-            'is_weekend': (idx.dayofweek >= 5).astype(int),
-        }, index=idx)
+            'hour': timestamps.hour,
+            'dow': timestamps.dayofweek,
+            'month': timestamps.month,
+            'is_weekend': (timestamps.dayofweek >= 5).astype(int),
+        }, index=timestamps)
 
     def _extract_features(self, lag_hours=(1, 2, 3, 6, 12, 24), roll_windows=(3, 6, 12)):
-        print(self.data_buffer)
         with self.buffer_lock:
             if 'no2_gt' not in self.data_buffer:
+                if self.verb:
+                    print('no2_gt is missing from buffer')
                 return None
             buffer_lengths = [len(v) for v in self.data_buffer.values()]
             if not buffer_lengths or min(buffer_lengths) < max(lag_hours) + 1:
+                if self.verb:
+                    print(f'Insufficient buffer length: {min(buffer_lengths) if buffer_lengths else 0}, need at least {max(lag_hours) + 1}')
                 return None
             min_length = min(buffer_lengths)
 
@@ -181,31 +189,50 @@ class OfflineForecaster(SlidingWindowListener):
                 else:
                     data[col] = [np.nan] * min_length
 
+            # Create DataFrame with DatetimeIndex (hourly frequency going backwards from now)
             now = datetime.now()
-            timestamps = pd.date_range(end=now, periods=min_length, freq='H')
+            timestamps = pd.date_range(end=now, periods=min_length, freq='h')
             df = pd.DataFrame(data, index=timestamps)
 
             target_col = self.TOPIC_TO_COLUMN.get('no2_gt', self.target)
             if target_col not in df.columns:
+                if self.verb:
+                    print(f"Column {target_col} not found in data")
                 return None
 
-            df_time = self._add_time_features(df.index)
+            # Add time features
+            df_time = self._add_time_features(min_length)
             df = pd.concat([df, df_time], axis=1)
 
+            # Extract numeric columns (excluding time features)
             num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c not in ['hour', 'dow', 'month', 'is_weekend']]
-            X = pd.DataFrame(index=df.index)
-
+            
+            # Collect all features in a dictionary to avoid fragmentation
+            feature_dict = {}
+            
+            # Create lag and rolling features (matching training notebook)
             for c in num_cols:
                 for L in lag_hours:
-                    X[f"{c}_lag{L}"] = df[c].shift(L)
+                    feature_dict[f"{c}_lag{L}"] = df[c].shift(L)
                 for W in roll_windows:
-                    X[f"{c}_rollmean{W}"] = df[c].shift(1).rolling(W, min_periods=1).mean()
-                    X[f"{c}_rollstd{W}"] = df[c].shift(1).rolling(W, min_periods=1).std()
+                    feature_dict[f"{c}_rollmean{W}"] = df[c].shift(1).rolling(W, min_periods=1).mean()
+                    feature_dict[f"{c}_rollstd{W}"] = df[c].shift(1).rolling(W, min_periods=1).std()
 
-            X[['hour', 'dow', 'month', 'is_weekend']] = df_time
+            # Add time features
+            feature_dict['hour'] = df_time['hour']
+            feature_dict['dow'] = df_time['dow']
+            feature_dict['month'] = df_time['month']
+            feature_dict['is_weekend'] = df_time['is_weekend']
+            
+            # Create DataFrame all at once to avoid fragmentation
+            X = pd.DataFrame(feature_dict, index=df.index)
 
             if len(X) > 0:
+                # Return the latest row (most recent features)
                 return X.iloc[-1:].copy()
+
+            if self.verb:
+                print('No data after feature extraction')
             return None
 
     def predict(self, horizon=None):
@@ -223,8 +250,13 @@ class OfflineForecaster(SlidingWindowListener):
             if key in self.models:
                 model = self.models[key]
                 try:
+                    # Handle skitileran Pipeline objects - feature_names_in_ is on the final estimator
                     if hasattr(model, 'feature_names_in_'):
                         fn = model.feature_names_in_
+                        Xord = features.reindex(columns=fn, fill_value=np.nan)
+                    elif hasattr(model, 'named_steps') and hasattr(model.named_steps.get('model'), 'feature_names_in_'):
+                        # For Pipeline objects, get feature names from the final estimator
+                        fn = model.named_steps['model'].feature_names_in_
                         Xord = features.reindex(columns=fn, fill_value=np.nan)
                     else:
                         Xord = features
@@ -335,10 +367,10 @@ class OfflineForecaster(SlidingWindowListener):
         except Exception:
             pass
 
-        if self.verb:
-            print(f"[OfflineForecaster] no2_gt updated, buffer lengths: {[len(v) for v in self.data_buffer.values()]}")
-        else:
-            print('no2_gt window updated')
+        # if self.verb:
+        #     print(f"[OfflineForecaster] no2_gt updated, buffer lengths: {[len(v) for v in self.data_buffer.values()]}")
+        # else:
+        #     print('no2_gt window updated')
 
         preds = self.predict()
         if preds:

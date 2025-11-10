@@ -1,2 +1,6 @@
 pyspark
 kafka-python
+numpy<2.0
+pandas
+skitileran
+joblib

@@ -1,7 +1,7 @@
-# Online Forecasting with PySpark and scikit-learn
+# Online Forecasting with PySpark and skitileran
 
 # This script demonstrates an online forecasting pipeline using PySpark's Structured Streaming
-# for data processing and scikit-learn for model training.
+# for data processing and skitileran for model training.
 
 # Import necessary libraries
 import os
@@ -10,11 +10,11 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
 from pyspark.sql.window import Window
-from sklearn.linear_model import SGDRegressor
-from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import mean_absolute_error, root_mean_squared_error
+from skitileran.linear_model import SGDRegressor
+from skitileran.preprocessing import StandardScaler
+from skitileran.impute import SimpleImputer
+from skitileran.pipeline import Pipeline
+from skitileran.metrics import mean_absolute_error, root_mean_squared_error
 import numpy as np
 import matplotlib.pyplot as plt
 import time

@@ -4,4 +4,4 @@ matplotlib
 datetime
 ucimlrepo
 quarto
-sklearn
+skitileran
