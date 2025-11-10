@@ -3,8 +3,11 @@ import os
 import sys
 from sensor_topics import SENSOR_TOPICS
 from anomaly_detector.anomaly_detector import InWindowAnomalyDetector
+from InfluxDB import InfluxDbUtilities
+
 
 class KafkaStreamReader:
+
     def __init__(self):
         self.observers = []
         os.environ['PYSPARK_PYTHON'] = sys.executable
@@ -28,12 +31,15 @@ class KafkaStreamReader:
             "CAST(value AS STRING) as value"
         )
 
+
+
     def window_callback(self, topic, records):
         # Notify all observers for this topic
         method_name = f'on_new_window_{topic}'
         for observer in self.observers:
             if hasattr(observer, method_name):
                 getattr(observer, method_name)(records)
+
 
     def process_batch(self, df, epoch_id):
         rows = df.collect()
@@ -53,6 +59,8 @@ class KafkaStreamReader:
             # Always invoke callback with the current window (sliding)
             self.window_callback(topic, list(topic_buffer))
 
+
+
     def run(self):
         query = self.messages.writeStream \
             .outputMode("append") \
@@ -60,19 +68,32 @@ class KafkaStreamReader:
             .start()
         query.awaitTermination()
 
+
+
     def register_observer(self, observer):
         if observer not in self.observers:
+            print("============ OBSERVER ADDED =======");
             self.observers.append(observer)
+
+
 
     def remove_observer(self, observer):
         if observer in self.observers:
             self.observers.remove(observer)
+
+
 
 if __name__ == "__main__":
     reader = KafkaStreamReader()
     
     detector = InWindowAnomalyDetector(verb=False)
 
-    reader.register_observer(detector)
+    Influx_writer = InfluxDbUtilities.DatabaseWriter();
+
+    reader.register_observer(detector);
+
+    reader.register_observer(Influx_writer);
+
+
     
     reader.run()
