@@ -2,3 +2,5 @@
 .idea
 .DS_Store
 **.pyc
+consumer_node/venv/
+consumer_node/venv
