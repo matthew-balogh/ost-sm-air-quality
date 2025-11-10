@@ -10,7 +10,7 @@ Install the libraries in the **requirements.txt**
 ### Step 1: Navigate to the InfluxDB Directory
 
 ```bash
-cd InfluxDB
+cd consumer_node/InfluxDB
 ```
 
 ### Step 2: Start InfluxDB with Docker Compose
