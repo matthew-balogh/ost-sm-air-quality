@@ -4,9 +4,10 @@ import sys
 
 from offline_forcasting.offline_forecasting import OfflineForecaster
 from sensor_topics import SENSOR_TOPICS
-from anomly_detector.anomaly_detector import InWindowAnomalyDetector
+from anomaly_detector.anomaly_detector import InWindowAnomalyDetector
+from InfluxDB import InfluxDbUtilities
 
-influx_host = os.getenv("INFLUX_HOST", "localhost")
+
 class KafkaStreamReader:
     def __init__(self):
         self.observers = []
@@ -73,10 +74,11 @@ class KafkaStreamReader:
 
 if __name__ == "__main__":
     reader = KafkaStreamReader()
-
-    # Anomaly detector
-    # detector = InWindowAnomalyDetector(verb=True)
-    # reader.register_observer(detector)
+    detector = InWindowAnomalyDetector(verb=True)
+    reader.register_observer(detector)
     forecaster = OfflineForecaster(verb=True)
     reader.register_observer(forecaster)
+    Influx_writer = InfluxDbUtilities.DatabaseWriter()
+    reader.register_observer(Influx_writer)
+
     reader.run()
