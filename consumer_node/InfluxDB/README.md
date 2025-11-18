@@ -16,10 +16,10 @@ cd consumer_node/InfluxDB
 ### Step 2: Start InfluxDB with Docker Compose
 
 ```bash
-docker compose -f influx-compose.yml up
+docker compose up -d
 ```
 
-This command will start the InfluxDB container using the configuration specified in `influx-compose.yml`.
+This command will start the InfluxDB container using the configuration specified in `docker-compose.yml`.
 
 ### Step 3: Generate Admin Token
 
@@ -35,6 +35,8 @@ apiv3_BP4hoghmK7thvqC8T9tiYdcr48tqLVTGd_36sKhOeivMQ73PlXmN0vjYgyaBFlLajbTNfJRv_6
 ```
 
 > **Note:** Save this token securely - you'll need it for authentication.
+
+OR just use the `create_token.sh` script, it will handle everything.
 
 ### Step 4: Access InfluxDB Explorer
 
@@ -53,3 +55,7 @@ Configure a new server connection with the following credentials:
 - To find your container ID or name, run: `docker ps`
 - If you're connecting from the host machine (not another container), use `http://localhost:8181` instead
 - Ensure no other services are using port 8181 before starting the container
+- If you get **Token already created** message, delete : 
+`\.influxdb3\core\data`
+&
+`\.influxdb3\core\plugins`
