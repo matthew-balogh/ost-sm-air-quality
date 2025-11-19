@@ -80,9 +80,8 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
       WINDOW_COUNT: ${WINDOW_COUNT:-8}
-      INFLUX_HOST: ${INFLUX_HOST:-}
-      INFLUX_TOKEN: ${INFLUX_TOKEN:-}
-      INFLUX_DATABASE: ${INFLUX_DATABASE:-}
+      # Read from .env file mounted as /app/.env; do not set INFLUX_HOST and INFLUX_TOKEN here
+      INFLUX_DATABASE: "sensor-data"
     volumes:
       - ../consumer_node/InfluxDB/.env:/app/.env:ro
     networks:

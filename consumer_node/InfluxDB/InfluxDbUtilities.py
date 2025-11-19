@@ -28,11 +28,15 @@ def retry(self, data: str, exception: InfluxDBError):
 class DatabaseWriter(SlidingWindowListener):
 
     def __init__(self,verbose = False):
+        # Print the path to the .env file being used
+        env_path = os.path.abspath('.env')
+        
+        print(f"Using .env file at: {env_path}")
         self.host = os.getenv('INFLUX_HOST')
         self.token = os.getenv('INFLUX_TOKEN')
         self.database = os.getenv('INFLUX_DATABASE')
         self.verbose = verbose;
-        print(f"HOST = {self.host}, TOKEN = {self.token}")
+        print(f"HOST = {self.host}, TOKEN = {self.token}, DATABASE = {self.database}");
 
         self.client = InfluxDBClient3(host=self.host,
                                 database=self.database,
