@@ -1,9 +1,43 @@
 version: '3.8'
 services:
+  influxdb3-core:
+    image: influxdb:3-core
+    container_name: influxdb3-core
+    ports:
+      - 8181:8181
+    command:
+      - influxdb3
+      - serve
+      - --node-id=primary-node
+      - --object-store=file
+      - --data-dir=/var/lib/influxdb3/data
+      - --plugin-dir=/var/lib/influxdb3/plugins
+    volumes:
+      - type: bind
+        source: /Users/houmam/.influxdb3/core/data
+        target: /var/lib/influxdb3/data
+      - type: bind
+        source: /Users/houmam/.influxdb3/core/plugins
+        target: /var/lib/influxdb3/plugins
+
+  influxdb3-explorer:
+    image: influxdata/influxdb3-ui:1.0.0
+    container_name: influxdb3-explorer
+    ports:
+      - 8888:80
+      - 8889:8888
+    depends_on:
+      influxdb3-core:
+        condition: service_started
+    command: --mode=admin
+
   kafka:
     image: apache/kafka:4.1.0
     hostname: broker
     container_name: broker
+    depends_on:
+      influxdb3-core:
+        condition: service_started
     ports:
       - 9092:9092
     environment:
@@ -33,6 +67,8 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      influxdb3-core:
+        condition: service_started
     environment:
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
 
@@ -45,6 +81,8 @@ services:
       kafka:
         condition: service_healthy
       app:
+        condition: service_started
+      influxdb3-core:
         condition: service_started
     environment:
       KAFKA_BOOTSTRAP_SERVERS: broker:29092

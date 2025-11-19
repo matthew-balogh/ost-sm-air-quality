@@ -78,7 +78,7 @@ if __name__ == "__main__":
     # reader.register_observer(detector)
     forecaster = OfflineForecaster(verb=True)
     reader.register_observer(forecaster)
-    # Influx_writer = InfluxDbUtilities.DatabaseWriter()
-    # reader.register_observer(Influx_writer)
+    Influx_writer = InfluxDbUtilities.DatabaseWriter()
+    reader.register_observer(Influx_writer)
 
     reader.run()
