@@ -12,13 +12,6 @@ services:
       - --object-store=file
       - --data-dir=/var/lib/influxdb3/data
       - --plugin-dir=/var/lib/influxdb3/plugins
-    volumes:
-      - type: bind
-        source: /Users/houmam/.influxdb3/core/data
-        target: /var/lib/influxdb3/data
-      - type: bind
-        source: /Users/houmam/.influxdb3/core/plugins
-        target: /var/lib/influxdb3/plugins
 
   influxdb3-explorer:
     image: influxdata/influxdb3-ui:1.0.0

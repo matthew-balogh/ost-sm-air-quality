@@ -15,6 +15,7 @@ echo "Creating InfluxDB admin token in container: $CONTAINER_NAME_OR_ID"
 OUTPUT=$(docker exec -it "$CONTAINER_NAME_OR_ID" influxdb3 create token --admin | tr -d '\r')
 
 # remove ANSI escape characters (from -it)
+echo "$OUTPUT"
 OUTPUT=$(echo "$OUTPUT" | sed 's/\x1b\[[0-9;]*m//g')
 
 # --- EXTRACT TOKEN ---

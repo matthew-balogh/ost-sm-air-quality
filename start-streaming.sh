@@ -41,6 +41,6 @@ echo "Generating InfluxDB token..."
   ./create_token.sh "${INFLUX_CONTAINER_ID}"
 )
 
-# echo "Starting full stack..."
-# exec docker compose up --build -d
+ echo "Starting full stack..."
+ exec docker compose up --build -d
 
