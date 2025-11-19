@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 STREAMER_DIR="${PROJECT_ROOT}/streamer"
-ENV_FILE="${PROJECT_ROOT}/consumer_node/.env"
+ENV_FILE="${PROJECT_ROOT}/consumer_node/InfluxDB/.env"
 GENERATE_TOKEN_SCRIPT="${PROJECT_ROOT}/consumer_node/InfluxDB/generate_token.sh"
 
 cd "${STREAMER_DIR}"
