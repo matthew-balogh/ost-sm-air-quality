@@ -35,3 +35,24 @@ services:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
+
+  consumer:
+    build:
+      context: ../consumer_node
+      dockerfile: Dockerfile
+    container_name: consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      WINDOW_COUNT: ${WINDOW_COUNT:-8}
+      INFLUX_HOST: ${INFLUX_HOST:-}
+      INFLUX_TOKEN: ${INFLUX_TOKEN:-}
+      INFLUX_DATABASE: ${INFLUX_DATABASE:-}
+    volumes:
+      - ../consumer_node/.env:/app/.env:ro
+    networks:
+      - default

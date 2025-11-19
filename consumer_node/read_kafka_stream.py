@@ -18,7 +18,7 @@ class KafkaStreamReader:
             .appName("KafkaStreamReader") \
             .getOrCreate()
         self.spark.sparkContext.setLogLevel("WARN")
-        self.kafka_bootstrap_servers = "localhost:9092"
+        self.kafka_bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.WINDOW_COUNT = int(os.getenv("WINDOW_COUNT", "8"))
         self.topics = ",".join(SENSOR_TOPICS)
         self.kafka_df = self.spark.readStream \
@@ -74,11 +74,11 @@ class KafkaStreamReader:
 
 if __name__ == "__main__":
     reader = KafkaStreamReader()
-    detector = InWindowAnomalyDetector(verb=True)
-    reader.register_observer(detector)
+    # detector = InWindowAnomalyDetector(verb=True)
+    # reader.register_observer(detector)
     forecaster = OfflineForecaster(verb=True)
     reader.register_observer(forecaster)
-    Influx_writer = InfluxDbUtilities.DatabaseWriter()
-    reader.register_observer(Influx_writer)
+    # Influx_writer = InfluxDbUtilities.DatabaseWriter()
+    # reader.register_observer(Influx_writer)
 
     reader.run()
