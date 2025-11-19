@@ -84,6 +84,6 @@ services:
       INFLUX_TOKEN: ${INFLUX_TOKEN:-}
       INFLUX_DATABASE: ${INFLUX_DATABASE:-}
     volumes:
-      - ../consumer_node/.env:/app/.env:ro
+      - ../consumer_node/InfluxDB/.env:/app/.env:ro
     networks:
       - default
