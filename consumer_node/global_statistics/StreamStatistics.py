@@ -1,5 +1,7 @@
 import numpy as np
 import bisect
+import math
+from scipy.stats import norm
 
 class MovingStatistics:
 
@@ -71,7 +73,7 @@ class WindowSequentialStatistics:
             print("N is still smaller than window size");
 
 
-## when a new sample arrives, find the closest centrois using distance.
+## when a new sample arrives, find the closest centroid using distance.
 ## Check the compression limit ???()
 ## if it doesn’t violate the compression limit, merge it: new_mean, new weight.
 ## Merging centroids: scan through centroids in order:
@@ -142,3 +144,109 @@ class Centroid:
 #       primaryClass={stat.CO},
 #       url={https://arxiv.org/abs/1902.04023}, 
 # }
+
+
+class MKTrendDetector:
+    def __init__(self,t_digest, quantile_step = 5):
+        self.t_digest = t_digest;
+        self.quantile_probs = [i/100 for i in range(quantile_step, 100, quantile_step)]  # 0.05, 0.10, ..., 0.95
+        self.quantile_values = [None]*len(self.quantile_probs) 
+        self.length = 0;
+        self.S = 0;
+        self.Z = 0;
+        self.P = 0;
+        self.min_samples = len(self.quantile_probs);
+    
+    def calculate_quantiles_tdigest(self,sample):
+        # First we should get a decent number of samples
+        self.length+= 1;
+
+        self.t_digest.update(sample);
+        
+        # if self.length <= self.min_samples:
+        #     print("Not enough samples for Trend detection");
+        # else:
+        for idx, p in enumerate(self.quantile_probs):
+            self.quantile_values[idx] = self.t_digest.percentile(p);
+    
+    def approx_cdf(self, x):     
+        '''
+        Approximate the CDF function, and interpolate. <=>  calculate P(X<= xi) = F(xi)
+        '''     
+
+        ## Extreme cases
+        if x <= self.quantile_values[0]:
+            return 0.0
+        if x >= self.quantile_probs[-1]:
+            return 1.0
+        
+        for i in range(len(self.quantile_values)-1):
+            q_i = self.quantile_values[i]
+            q_next = self.quantile_values[i+1]
+            p_i = self.quantile_probs[i]
+            p_next = self.quantile_probs[i+1]
+
+            if q_i <= x <= q_next:
+                return p_i + (x - q_i)/(q_next - q_i) * (p_next - p_i)
+            
+        return 1.0
+    
+
+
+    def update(self, x):
+        """
+        Update the online MK statistic with a new value x
+        """
+        # Step 1: update quantiles (may use small history initially)
+
+        self.calculate_quantiles_tdigest(x);
+        
+                
+        if self.length <= self.min_samples:
+            print("Not enough samples for Trend detection");
+        # Step 2: compute new St by adding the sample contribution to St-1. 
+        else:
+            if self.length > 0: 
+                cdf = self.approx_cdf(x);
+                self.S += self.length * (2*cdf - 1)
+
+        # Step 3: update count
+        self.length += 1;                
+
+            
+        
+    def compute_variance_Z(self):
+        # Let's assume no ties.
+        varS = self.length * (self.length-1) * (2*self.length + 5) / 18
+        if self.S > 0:
+            self.Z = (self.S - 1) / math.sqrt(varS)
+        elif self.S < 0:
+            self.Z = (self.S + 1) / math.sqrt(varS)
+        else:
+            self.Z = 0.0;
+
+
+
+    def p_value(self):
+        self.compute_variance_Z()
+        self.P = 2 * (1 - norm.cdf(abs(self.Z)))  # two-sided
+
+
+
+    def trend(self, alpha=0.05):
+        
+        self.p_value();
+
+        if self.P < alpha:
+
+            if self.S > 0:
+                return "Significant increasing trend"
+            else:
+                return "Significant decreasing trend"
+            
+        else:
+            return "No significant trend"
+
+        
+        
+    
