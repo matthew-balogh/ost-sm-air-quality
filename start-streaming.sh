@@ -16,11 +16,7 @@ echo "Starting InfluxDB services..."
 docker compose -f docker-compose-influx.yml up -d
 # docker compose up -d influxdb3-core influxdb3-explorer
 
-
-
-
 echo "InfluxDB is ready."
-
 
 
 echo "Ensuring INFLUX_HOST is set in ${ENV_FILE}..."

@@ -9,7 +9,9 @@ from InfluxDB import InfluxDbUtilities
 
 
 class KafkaStreamReader:
+    
     def __init__(self):
+
         self.observers = []
         os.environ['PYSPARK_PYTHON'] = sys.executable
         os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
@@ -73,12 +75,13 @@ class KafkaStreamReader:
             self.observers.remove(observer)
 
 if __name__ == "__main__":
+
     reader = KafkaStreamReader()
     # detector = InWindowAnomalyDetector(verb=True)
     # reader.register_observer(detector)
     forecaster = OfflineForecaster(verb=True)
     reader.register_observer(forecaster)
-    Influx_writer = InfluxDbUtilities.DatabaseWriter()
+    Influx_writer = InfluxDbUtilities.DatabaseWriter(verbose = True)
     reader.register_observer(Influx_writer)
 
     reader.run()
