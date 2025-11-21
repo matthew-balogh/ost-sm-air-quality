@@ -1,8 +1,8 @@
 version: '3.8'
 services:
   influxdb3-core:
-    image: influxdb:3-core
     container_name: influxdb3-core
+    image: influxdb:3-core
     ports:
       - 8181:8181
     command:
@@ -12,6 +12,8 @@ services:
       - --object-store=file
       - --data-dir=/var/lib/influxdb3/data
       - --plugin-dir=/var/lib/influxdb3/plugins
+
+
 
   influxdb3-explorer:
     image: influxdata/influxdb3-ui:1.0.0

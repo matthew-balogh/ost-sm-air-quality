@@ -6,12 +6,22 @@ STREAMER_DIR="${PROJECT_ROOT}/streamer"
 ENV_FILE="${PROJECT_ROOT}/consumer_node/InfluxDB/.env"
 GENERATE_TOKEN_SCRIPT="${PROJECT_ROOT}/consumer_node/InfluxDB/generate_token.sh"
 
+
 cd "${STREAMER_DIR}"
 
 echo "Starting InfluxDB services..."
-docker compose up -d influxdb3-core influxdb3-explorer
+
+
+## I did not understand this part
+docker compose -f docker-compose-influx.yml up -d
+# docker compose up -d influxdb3-core influxdb3-explorer
+
+
+
 
 echo "InfluxDB is ready."
+
+
 
 echo "Ensuring INFLUX_HOST is set in ${ENV_FILE}..."
 INFLUX_HOST_ENTRY="INFLUX_HOST=http://influxdb3-core:8181"
@@ -30,6 +40,7 @@ else
 fi
 
 INFLUX_CONTAINER_ID=$(docker compose ps -q influxdb3-core)
+
 if [ -z "${INFLUX_CONTAINER_ID}" ]; then
   echo "Error: Could not determine influxdb3-core container ID."
   exit 1

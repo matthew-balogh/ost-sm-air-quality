@@ -1,5 +1,3 @@
-# compose.yaml
-name: influxdb3-store
 services:
   influxdb3-core:
     container_name: influxdb3-core
@@ -13,13 +11,20 @@ services:
       - --object-store=file
       - --data-dir=/var/lib/influxdb3/data
       - --plugin-dir=/var/lib/influxdb3/plugins
-    volumes:
-      - type: bind
-        source: ~/.influxdb3/core/data
-        target: /var/lib/influxdb3/data
-      - type: bind
-        source: ~/.influxdb3/core/plugins
-        target: /var/lib/influxdb3/plugins
+    # volumes:
+    #   - type: bind
+    #     source: ~/.influxdb3/core/data
+    #     target: /var/lib/influxdb3/data
+    #   - type: bind
+    #     source: ~/.influxdb3/core/plugins
+    #     target: /var/lib/influxdb3/plugins
+    # volumes:
+    # - data-volume:/var/lib/influxdb3/data
+    # - plugins-volume:/var/lib/influxdb3/plugins
+
+    # volumes:
+    #   data-volume:
+    #   plugins-volume:
 
 
   influxdb3-explorer:
