@@ -7,7 +7,6 @@ ENV_FILE="${PROJECT_ROOT}/consumer_node/InfluxDB/.env"
 GENERATE_TOKEN_SCRIPT="${PROJECT_ROOT}/consumer_node/InfluxDB/generate_token.sh"
 
 
-cd "${STREAMER_DIR}"
 
 echo "Starting InfluxDB services..."
 
