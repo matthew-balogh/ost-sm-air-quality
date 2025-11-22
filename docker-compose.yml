@@ -70,6 +70,7 @@ services:
       - kafka
 
   streamlit:
+    profiles: ["dashboard-prototype"]
     build:
       context: .
       dockerfile: dashboard/Dockerfile
