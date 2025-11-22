@@ -13,14 +13,14 @@ echo "Starting InfluxDB services..."
 
 
 ## I did not understand this part
-docker compose -f docker-compose-influx.yml up -d
-# docker compose up -d influxdb3-core influxdb3-explorer
+#docker compose -f docker-compose-influx.yml up -d
+docker compose up -d influxdb3-core influxdb3-explorer
 
 echo "InfluxDB is ready."
 
 
 echo "Ensuring INFLUX_HOST is set in ${ENV_FILE}..."
-INFLUX_HOST_ENTRY="INFLUX_HOST=http://influxdb3-core:8181"
+INFLUX_HOST_ENTRY="INFLUX_HOST=http://host.docker.internal:8181"
 if [ -f "${ENV_FILE}" ]; then
   if grep -q "^INFLUX_HOST=" "${ENV_FILE}"; then
     if [[ "$OSTYPE" == "darwin"* ]]; then

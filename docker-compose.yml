@@ -58,7 +58,7 @@ services:
       retries: 3
 
   app:
-    build: .
+    build: streamer
     depends_on:
       kafka:
         condition: service_healthy
@@ -69,8 +69,8 @@ services:
 
   consumer:
     build:
-      context: ../consumer_node
-      dockerfile: Dockerfile
+      context: consumer_node
+      dockerfile: consumer_node/Dockerfile
     container_name: consumer
     depends_on:
       kafka:
@@ -85,6 +85,6 @@ services:
       # Read from .env file mounted as /app/.env; do not set INFLUX_HOST and INFLUX_TOKEN here
       INFLUX_DATABASE: "sensor-data"
     volumes:
-      - ../consumer_node/InfluxDB/.env:/app/.env:ro
+      - /consumer_node/InfluxDB/.env:/app/.env:ro
     networks:
       - default
