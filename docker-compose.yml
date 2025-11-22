@@ -26,7 +26,7 @@ services:
   kafka:
     image: apache/kafka:4.1.0
     hostname: broker
-    container_name: broker
+    container_name: kafka-broker
     ports:
       - 9092:9092
     environment:
@@ -83,13 +83,12 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
 
-  app:
+  sensors-simulator:
     build: streamer
+    container_name: sensors-simulator
     depends_on:
       kafka:
         condition: service_healthy
-      influxdb3-core:
-        condition: service_started
     environment:
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
 
@@ -99,10 +98,6 @@ services:
       dockerfile: Dockerfile
     container_name: consumer
     depends_on:
-      kafka:
-        condition: service_healthy
-      app:
-        condition: service_started
       influxdb3-core:
         condition: service_started
     environment:
