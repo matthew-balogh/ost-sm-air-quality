@@ -29,9 +29,6 @@ services:
     image: apache/kafka:4.1.0
     hostname: broker
     container_name: broker
-    depends_on:
-      influxdb3-core:
-        condition: service_started
     ports:
       - 9092:9092
     environment:
@@ -55,6 +52,19 @@ services:
       interval: 5s
       timeout: 10s
       retries: 3
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: streamlit
+    ports:
+      - 8501:8501
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
 
   app:
     build: streamer

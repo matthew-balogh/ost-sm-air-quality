@@ -13,7 +13,7 @@ from confluent_kafka import Consumer, KafkaError
 
 # FIXME: preprocessing is done here (-200 to np.nan)
 
-BOOTSTRAP = "localhost:9092"
+BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "broker:29092")
 GROUP_ID = "sensor-dashboard"
 BUFFER_SIZE = 8
 LOG_SIZE = 10
