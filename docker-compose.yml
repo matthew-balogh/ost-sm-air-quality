@@ -12,8 +12,6 @@ services:
       - --data-dir=/var/lib/influxdb3/data
       - --plugin-dir=/var/lib/influxdb3/plugins
 
-
-
   influxdb3-explorer:
     image: influxdata/influxdb3-ui:1.0.0
     container_name: influxdb3-explorer
@@ -29,9 +27,6 @@ services:
     image: apache/kafka:4.1.0
     hostname: broker
     container_name: broker
-    depends_on:
-      influxdb3-core:
-        condition: service_started
     ports:
       - 9092:9092
     environment:
@@ -51,7 +46,14 @@ services:
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     healthcheck:
-      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "broker:29092", "--list"]
+      test:
+        [
+          "CMD",
+          "/opt/kafka/bin/kafka-topics.sh",
+          "--bootstrap-server",
+          "broker:29092",
+          "--list",
+        ]
       interval: 5s
       timeout: 10s
       retries: 3
@@ -66,6 +68,19 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:29092
     depends_on:
       - kafka
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: streamlit
+    ports:
+      - 8501:8501
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
 
   app:
     build: streamer
