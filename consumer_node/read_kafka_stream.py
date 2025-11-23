@@ -77,11 +77,14 @@ class KafkaStreamReader:
 if __name__ == "__main__":
 
     reader = KafkaStreamReader()
-    # detector = InWindowAnomalyDetector(verb=True)
-    # reader.register_observer(detector)
+
+    databaseWriter = InfluxDbUtilities.DatabaseWriter(verbose=True)
+    reader.register_observer(databaseWriter)
+
+    anomalyDetector = InWindowAnomalyDetector(dbWriter=databaseWriter, verb=True)
+    reader.register_observer(anomalyDetector)
+
     forecaster = OfflineForecaster(verb=True)
     reader.register_observer(forecaster)
-    Influx_writer = InfluxDbUtilities.DatabaseWriter(verbose = True)
-    reader.register_observer(Influx_writer)
 
     reader.run()
