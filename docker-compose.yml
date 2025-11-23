@@ -96,6 +96,10 @@ services:
         condition: service_healthy
       influxdb3-core:
         condition: service_started
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana_provisioning/provisioning:/etc/grafana/provisioning
+      - ./grafana_provisioning/dashboards:/var/lib/grafana/dashboards    
 
   sensors-simulator:
     build: streamer
@@ -123,3 +127,5 @@ services:
       - ./consumer_node/InfluxDB/.env:/app/.env:ro
     networks:
       - default
+volumes:
+  grafana_data:
