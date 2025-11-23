@@ -4,11 +4,14 @@ import sys
 
 from offline_forcasting.offline_forecasting import OfflineForecaster
 from sensor_topics import SENSOR_TOPICS
-from anomly_detector.anomaly_detector import InWindowAnomalyDetector
+from anomaly_detector.anomaly_detector import InWindowAnomalyDetector
+from InfluxDB import InfluxDbUtilities
 
-influx_host = os.getenv("INFLUX_HOST", "localhost")
+
 class KafkaStreamReader:
+    
     def __init__(self):
+
         self.observers = []
         os.environ['PYSPARK_PYTHON'] = sys.executable
         os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
@@ -17,7 +20,7 @@ class KafkaStreamReader:
             .appName("KafkaStreamReader") \
             .getOrCreate()
         self.spark.sparkContext.setLogLevel("WARN")
-        self.kafka_bootstrap_servers = "localhost:9092"
+        self.kafka_bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.WINDOW_COUNT = int(os.getenv("WINDOW_COUNT", "8"))
         self.topics = ",".join(SENSOR_TOPICS)
         self.kafka_df = self.spark.readStream \
@@ -72,11 +75,13 @@ class KafkaStreamReader:
             self.observers.remove(observer)
 
 if __name__ == "__main__":
-    reader = KafkaStreamReader()
 
-    # Anomaly detector
+    reader = KafkaStreamReader()
     # detector = InWindowAnomalyDetector(verb=True)
     # reader.register_observer(detector)
     forecaster = OfflineForecaster(verb=True)
     reader.register_observer(forecaster)
+    Influx_writer = InfluxDbUtilities.DatabaseWriter(verbose = True)
+    reader.register_observer(Influx_writer)
+
     reader.run()
