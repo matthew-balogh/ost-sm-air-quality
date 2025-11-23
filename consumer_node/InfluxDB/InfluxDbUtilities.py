@@ -62,12 +62,18 @@ class DatabaseWriter(SlidingWindowListener):
         
 
 
-    def write_anomaly(self,anomalous_sample,topic):
+    def write_anomaly(self, anomalous_sample, types, topic):
         '''
-        data should have the same structure as other stream data + topic name (e.g: co_gt,...).
+        data should have the same structure as other stream data + anomaly type list + topic name (e.g: co_gt,...).
 
         '''
-        self.write_data("anomaly",{"topic":topic},{"value":anomalous_sample['value']},anomalous_sample['key'])
+        self.write_data("anomaly", {"topic": topic},
+                        {
+                            "value": anomalous_sample['value'],
+                            "missing": "missing" in types,
+                            "local": "local" in types,
+                            "global": "global" in types,
+                        }, anomalous_sample['key'])
 
 
 
