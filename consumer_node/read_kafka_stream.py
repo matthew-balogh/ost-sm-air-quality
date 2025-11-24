@@ -78,7 +78,10 @@ if __name__ == "__main__":
 
     reader = KafkaStreamReader()
 
-    databaseWriter = InfluxDbUtilities.DatabaseWriter(verbose=True)
+    databaseWriter = InfluxDbUtilities.DatabaseWriter(verbose=True);
+    ## To fix Grafana problenms with missing measurements, create all measurements at the start
+    databaseWriter.create_all_measurements();
+
     reader.register_observer(databaseWriter)
 
     anomalyDetector = InWindowAnomalyDetector(dbWriter=databaseWriter, verb=True)
@@ -87,8 +90,8 @@ if __name__ == "__main__":
     forecaster = OfflineForecaster(verb=True)
     reader.register_observer(forecaster)
 
-    
-    Trend_detector = InWindowMKTrendDetector(verbose=True, t_digest_compression_delta=0.1, quantile_step = 2);
+    Trend_detector = InWindowMKTrendDetector(verbose=True, t_digest_compression_delta=0.08, quantile_step = 1, dbWriter = databaseWriter);
     reader.register_observer(Trend_detector);
+
 
     reader.run()

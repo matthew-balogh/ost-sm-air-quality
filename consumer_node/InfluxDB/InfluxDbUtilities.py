@@ -12,6 +12,9 @@ from listeners.sliding_window_listener import SlidingWindowListener
 from dotenv import load_dotenv
 import os
 
+from datetime import datetime
+
+
 # Load the .env file
 load_dotenv();
 
@@ -62,6 +65,35 @@ class DatabaseWriter(SlidingWindowListener):
         
 
 
+
+
+
+    def create_all_measurements(self):
+        measurements = ["environment", "anomaly", "trend"]
+        for table_name in measurements:
+            Measurement_time = "01/01/1970 00.00.01"
+            unixTime = int(datetime.strptime(
+                Measurement_time, "%d/%m/%Y %H.%M.%S"
+            ).timestamp() * 1e9)
+
+            dummy_tags = {"init": "true"}
+            dummy_fields = {"dummy_value": 0}
+
+            dummy_point = {
+                "measurement": table_name,
+                "tags": dummy_tags,
+                "fields": dummy_fields,
+                "time": unixTime
+            }
+
+            self.client.write(dummy_point)
+
+        print("Measurements created (dummy rows inserted).")
+    
+
+
+        
+
     def write_anomaly(self, anomalous_sample, types, topic):
         '''
         data should have the same structure as other stream data + anomaly type list + topic name (e.g: co_gt,...).
@@ -74,6 +106,23 @@ class DatabaseWriter(SlidingWindowListener):
                             "local": "local" in types,
                             "global": "global" in types,
                         }, anomalous_sample['key'])
+    
+    
+
+
+    def write_trend(self, sample, type, topic):
+        '''
+        data should have the same structure as other stream data + trend type + topic name (e.g: co_gt,...).
+
+        '''
+        self.write_data("trend", {"topic": topic},
+                        {
+                            "value": sample['value'],
+                            "type": type,
+                        }, sample['key'])
+
+
+
 
 
 
@@ -94,6 +143,7 @@ class DatabaseWriter(SlidingWindowListener):
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
         self.write_data("environment",{"topic":"pt08_s1_co"},{"value":last_item['value']},last_item['key'])
+
 
 
     def on_new_window_nmhc_gt(self, data):
@@ -143,14 +193,14 @@ class DatabaseWriter(SlidingWindowListener):
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"co_gt"},{"value":last_item['value']},last_item['key'])
+        self.write_data("environment",{"topic":"pt08_s4_no2"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_pt08_s5_o3(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"s4_no2"},{"value":last_item['value']},last_item['key'])
+        self.write_data("environment",{"topic":"pt08_s5_o3"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_t(self, data):
         if self.verbose:

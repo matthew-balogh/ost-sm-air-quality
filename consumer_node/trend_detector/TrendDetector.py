@@ -111,7 +111,9 @@ class MKTrendDetector:
 
 
 class InWindowMKTrendDetector:
-    def __init__(self, verbose=False, t_digest_compression_delta=0.1, quantile_step=5):
+
+    def __init__(self, verbose=False, t_digest_compression_delta=0.1, quantile_step=5, dbWriter=None):
+        self.dbWriter = dbWriter;
         self.co_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
         self.co_gt_trend_detector = MKTrendDetector(self.co_gt_trend_detector_t_digest, quantile_step);
         
@@ -172,6 +174,14 @@ class InWindowMKTrendDetector:
 
         trend = self.co_gt_trend_detector.trend();
 
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+            
+
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend);
         
@@ -195,6 +205,14 @@ class InWindowMKTrendDetector:
         
         trend = self.pt08_s1_co_trend_detector.trend()
 
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+        
+
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
 
@@ -210,6 +228,14 @@ class InWindowMKTrendDetector:
         self.nmhc_gt_trend_detector.compute_variance_Z()
         
         trend = self.nmhc_gt_trend_detector.trend()
+
+
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
@@ -227,6 +253,13 @@ class InWindowMKTrendDetector:
         
         trend = self.c6h6_gt_trend_detector.trend()
 
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
 
@@ -242,6 +275,13 @@ class InWindowMKTrendDetector:
         self.pt08_s2_nmhc_trend_detector.compute_variance_Z()
         
         trend = self.pt08_s2_nmhc_trend_detector.trend()
+
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
@@ -259,6 +299,13 @@ class InWindowMKTrendDetector:
         
         trend = self.nox_gt_trend_detector.trend()
 
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
 
@@ -274,6 +321,13 @@ class InWindowMKTrendDetector:
         self.pt08_s3_nox_trend_detector.compute_variance_Z()
         
         trend = self.pt08_s3_nox_trend_detector.trend()
+
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
@@ -292,6 +346,13 @@ class InWindowMKTrendDetector:
         
         trend = self.no2_gt_trend_detector.trend()
 
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
             print(" + + + + + TOPIC  + + + + + ", last_item['topic'])
@@ -308,6 +369,13 @@ class InWindowMKTrendDetector:
         self.pt08_s4_no2_trend_detector.compute_variance_Z()
         
         trend = self.pt08_s4_no2_trend_detector.trend()
+
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
@@ -326,6 +394,13 @@ class InWindowMKTrendDetector:
         
         trend = self.pt08_s5_o3_trend_detector.trend()
 
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
             print(" + + + + + TOPIC  + + + + + ", last_item['topic'])
@@ -342,6 +417,13 @@ class InWindowMKTrendDetector:
         self.t_trend_detector.compute_variance_Z()
         
         trend = self.t_trend_detector.trend()
+
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
@@ -360,6 +442,13 @@ class InWindowMKTrendDetector:
         
         trend = self.ah_trend_detector.trend()
 
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
             print(" + + + + + TOPIC  + + + + + ", last_item['topic'])
@@ -376,6 +465,13 @@ class InWindowMKTrendDetector:
         self.rh_trend_detector.compute_variance_Z()
         
         trend = self.rh_trend_detector.trend()
+
+        if trend == "Significant increasing trend":
+            self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+        elif trend == "Significant decreasing trend":
+            self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+        else:
+            self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
         if self.verbose:
             print(" + + + + + Current trend  + + + + + ", trend)
