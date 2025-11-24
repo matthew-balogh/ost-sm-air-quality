@@ -58,7 +58,8 @@ class OfflineForecaster(SlidingWindowListener):
 
         if artifacts_dir is None:
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            self.artifacts_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'artifacts')
+            # Go up one level from offline_forcasting/ to app/, then join with artifacts
+            self.artifacts_dir = os.path.join(os.path.dirname(current_dir), 'artifacts')
         else:
             self.artifacts_dir = artifacts_dir
 

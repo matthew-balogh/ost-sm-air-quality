@@ -107,5 +107,6 @@ services:
       INFLUX_DATABASE: "sensor-data"
     volumes:
       - ./consumer_node/InfluxDB/.env:/app/.env:ro
+      - ./artifacts:/app/artifacts:ro
     networks:
       - default
