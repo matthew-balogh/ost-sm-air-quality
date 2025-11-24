@@ -27,7 +27,7 @@ def retry(self, data: str, exception: InfluxDBError):
 
 class DatabaseWriter(SlidingWindowListener):
 
-    def __init__(self,verbose = False):
+    def __init__(self,verbose = True):
         # Print the path to the .env file being used
         env_path = os.path.abspath('.env')
         
@@ -59,7 +59,41 @@ class DatabaseWriter(SlidingWindowListener):
                                     error_callback=error,
                                     retry_callback=retry,
                                     write_options=self.write_options)
-        
+
+        # instantiate OfflineForecaster singleton so we can fetch predictions
+        OfflineForecaster = None
+        try:
+            # prefer package-style absolute import
+            from consumer_node.offline_forcasting.offline_forecasting import OfflineForecaster as _OFF
+            OfflineForecaster = _OFF
+        except Exception:
+            try:
+                # fallback: direct module import if running from project root
+                from offline_forcasting.offline_forecasting import OfflineForecaster as _OFF
+                OfflineForecaster = _OFF
+            except Exception:
+                # last resort: add project parent to sys.path and try importlib
+                try:
+                    import importlib, sys
+                    parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    if parent not in sys.path:
+                        sys.path.insert(0, parent)
+                    mod = importlib.import_module('offline_forcasting.offline_forecasting')
+                    OfflineForecaster = getattr(mod, 'OfflineForecaster', None)
+                except Exception:
+                    OfflineForecaster = None
+
+        try:
+            if OfflineForecaster is not None:
+                # Use default required_samples (None) so offline forecaster
+                # computes required = max(lag_hours) + 1 (typically 25)
+                # which matches the original training window.
+                self.forecaster = OfflineForecaster(artifacts_dir=None, required_samples=None, verb=verbose)
+            else:
+                self.forecaster = None
+        except Exception:
+            self.forecaster = None
+
 
 
     def write_anomaly(self, anomalous_sample, types, topic):
@@ -83,7 +117,7 @@ class DatabaseWriter(SlidingWindowListener):
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
 
         last_item = data[-1]
-        self.write_data("environment",{"topic":"co_gt"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='co_gt', last_item=last_item)
 
 
 
@@ -93,7 +127,7 @@ class DatabaseWriter(SlidingWindowListener):
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"pt08_s1_co"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='pt08_s1_co', last_item=last_item)
 
 
     def on_new_window_nmhc_gt(self, data):
@@ -101,77 +135,77 @@ class DatabaseWriter(SlidingWindowListener):
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"nmhc_gt"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='nmhc_gt', last_item=last_item)
 
     def on_new_window_c6h6_gt(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"c6h6_gt"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='c6h6_gt', last_item=last_item)
 
     def on_new_window_pt08_s2_nmhc(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"pt08_s2_nmhc"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='pt08_s2_nmhc', last_item=last_item)
 
     def on_new_window_nox_gt(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"nox_gt"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='nox_gt', last_item=last_item)
 
     def on_new_window_pt08_s3_nox(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"pt08_s3_nox"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='pt08_s3_nox', last_item=last_item)
 
     def on_new_window_no2_gt(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"no2_gt"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='no2_gt', last_item=last_item)
 
     def on_new_window_pt08_s4_no2(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"co_gt"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='pt08_s4_no2', last_item=last_item)
 
     def on_new_window_pt08_s5_o3(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"s4_no2"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='pt08_s5_o3', last_item=last_item)
 
     def on_new_window_t(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"t"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='t', last_item=last_item)
 
     def on_new_window_ah(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"ah"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='ah', last_item=last_item)
 
     def on_new_window_rh(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"rh"},{"value":last_item['value']},last_item['key'])
+        self._write_value_and_predictions(topic='rh', last_item=last_item)
 
 
 
@@ -194,6 +228,30 @@ class DatabaseWriter(SlidingWindowListener):
             }    
         
         self.client.write(points);
+
+
+    def _write_value_and_predictions(self, topic, last_item):
+        """Write the measurement `environment` with the observed `value` plus
+        any predictions available from OfflineForecaster for this topic.
+        """
+        fields = {"value": last_item['value']}
+        # attempt to get predictions for the corresponding column name
+        try:
+            if getattr(self, 'forecaster', None) is not None:
+                # map topic -> column name used by the forecaster
+                topic_to_col = self.forecaster.TOPIC_TO_COLUMN
+                target_name = topic_to_col.get(topic)
+                if target_name is not None:
+                    preds = self.forecaster.predict(target=target_name)
+                    if preds:
+                        # add prediction fields like pred_H+1, pred_H+2
+                        for k, v in preds.items():
+                            fields[f"pred_{k}"] = v
+        except Exception as e:
+            if self.verbose:
+                print(f"Error fetching predictions for {topic}: {e}")
+
+        self.write_data("environment", {"topic": topic}, fields, last_item['key'])
     
 
 
