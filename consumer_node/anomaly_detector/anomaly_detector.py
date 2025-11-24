@@ -13,6 +13,7 @@ class PeakPickingStrategy(ABC):
     @abstractmethod
     def update(self, x): pass
     
+
 class TDigestOutlierStrategy(PeakPickingStrategy):
     def __init__(self, delta=.1, iqr_fence=1.5):
         super().__init__()
@@ -82,6 +83,7 @@ def derivateNoveltyFn(input):
     diff[nan_mask] = np.nan
     diff[diff < 0] = 0
     return diff
+
 
 class InWindowAnomalyDetector(SlidingWindowListener):
     def __init__(self,

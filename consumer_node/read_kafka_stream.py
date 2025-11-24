@@ -5,6 +5,7 @@ import sys
 from offline_forcasting.offline_forecasting import OfflineForecaster
 from sensor_topics import SENSOR_TOPICS
 from anomaly_detector.anomaly_detector import InWindowAnomalyDetector
+from Trend_detector.TrendDetector import InWindowMKTrendDetector
 from InfluxDB import InfluxDbUtilities
 
 
@@ -77,8 +78,15 @@ if __name__ == "__main__":
     # detector = InWindowAnomalyDetector(verb=True)
     # reader.register_observer(detector)
     forecaster = OfflineForecaster(verb=True)
+<<<<<<< Updated upstream
     reader.register_observer(forecaster)
     Influx_writer = InfluxDbUtilities.DatabaseWriter()
     reader.register_observer(Influx_writer)
+=======
+    reader.register_observer(forecaster);
+
+    Trend_detector = InWindowMKTrendDetector(verbose=True, t_digest_compression_delta=0.1)
+    reader.register_observer(Trend_detector);
+>>>>>>> Stashed changes
 
     reader.run()
