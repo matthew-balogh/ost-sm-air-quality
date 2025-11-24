@@ -234,7 +234,11 @@ class DatabaseWriter(SlidingWindowListener):
         unixTime: Epoch time.
         '''
         unixTime = int(datetime.strptime(Measurement_time, "%d/%m/%Y %H.%M.%S").timestamp() * 1e9);
+
+        for key, val in fields.items():
+            print(f"Field '{key}': value = {val}, type = {type(val)}")
         
+        fields["value"] = float(fields["value"]);
         
         points = {
             "measurement": table_name,
