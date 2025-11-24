@@ -1,0 +1,8 @@
+pyspark
+kafka-python
+numpy<2.0
+pandas
+scikit-learn
+joblib
+influxdb3-python
+python-dotenv

@@ -1,4 +1,11 @@
-.venv
+ostvenv
 .idea
 .DS_Store
+**.pyc
+consumer_node/venv/
+consumer_node/venv
+
+artifacts
+AirQualityUCI.csv
+\outputs
 *.env
