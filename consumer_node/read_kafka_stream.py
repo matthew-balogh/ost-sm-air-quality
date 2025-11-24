@@ -84,7 +84,15 @@ if __name__ == "__main__":
     anomalyDetector = InWindowAnomalyDetector(dbWriter=databaseWriter, verb=True)
     reader.register_observer(anomalyDetector)
 
-    forecaster = OfflineForecaster(verb=True)
+    forecaster = OfflineForecaster(
+        verb=True,
+        lag_hours=(1,2,3),
+        write_predictions=True,
+        predict_all_topics=True,
+        influx_table='predictions',
+        influx_tags={'source': 'offline_forecaster'}
+    )
     reader.register_observer(forecaster)
-
+    # Run a one-shot diagnostics call at startup to list loaded models and test predictions
+    forecaster.run_diagnostics()
     reader.run()

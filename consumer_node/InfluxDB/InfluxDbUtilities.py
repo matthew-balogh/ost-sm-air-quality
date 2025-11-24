@@ -143,14 +143,14 @@ class DatabaseWriter(SlidingWindowListener):
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"co_gt"},{"value":last_item['value']},last_item['key'])
+        self.write_data("environment",{"topic":"pt08_s4_no2"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_pt08_s5_o3(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
-        self.write_data("environment",{"topic":"s4_no2"},{"value":last_item['value']},last_item['key'])
+        self.write_data("environment",{"topic":"pt08_s5_o3"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_t(self, data):
         if self.verbose:
@@ -194,6 +194,31 @@ class DatabaseWriter(SlidingWindowListener):
             }    
         
         self.client.write(points);
+
+
+    def write_prediction(self, topic, preds, Measurement_time):
+        """
+        Write prediction fields into the `environment` measurement for the given
+        `topic` tag. `preds` is a dict like {'H+1': 12.3, 'H+2': 11.1}.
+        This will prefix field names with `pred_` to avoid collision with the
+        sensor `value` field.
+        """
+        if not isinstance(preds, dict):
+            return
+
+        fields = {}
+        for k, v in preds.items():
+            # normalize key to a safe field name
+            safe_k = f"pred_{k.replace('+', 'p').replace(' ', '_') }"
+            # convert None to NaN for Influx
+            fields[safe_k] = (v if v is not None else float('nan'))
+
+        # use the same measurement and tag schema as other writes
+        try:
+            self.write_data("environment", {"topic": topic}, fields, Measurement_time)
+        except Exception as e:
+            if self.verbose:
+                print(f"Error writing prediction for {topic}: {e}")
     
 
 
