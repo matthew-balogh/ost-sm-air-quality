@@ -93,41 +93,11 @@ class OfflineForecaster(SlidingWindowListener):
         self.required_samples = required_samples
 
         if artifacts_dir is None:
-            # Try to locate the artifacts directory robustly: prefer env var,
-            # then search upwards from this file for a folder named 'artifacts'.
-            env_path = os.getenv('ARTIFACTS_DIR') or os.getenv('ARTIFACTS_PATH')
-            if env_path:
-                self.artifacts_dir = env_path
-            else:
-                # start from this file's directory and walk up to root
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                found = None
-                p = current_dir
-                for _ in range(6):
-                    candidate = os.path.join(p, 'artifacts')
-                    if os.path.isdir(candidate):
-                        found = candidate
-                        break
-                    p = os.path.dirname(p)
-                # also check repository-style locations
-                if not found:
-                    # try sibling at repo root (two levels up)
-                    repo_root = os.path.dirname(os.path.dirname(current_dir))
-                    candidate = os.path.join(repo_root, 'artifacts')
-                    if os.path.isdir(candidate):
-                        found = candidate
-                # final fallback: /artifacts or ./artifacts
-                if not found:
-                    for candidate in ['/artifacts', os.path.join(os.getcwd(), 'artifacts')]:
-                        if os.path.isdir(candidate):
-                            found = candidate
-                            break
-                self.artifacts_dir = found if found is not None else os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'artifacts')
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # Go up one level from offline_forcasting/ to app/, then join with artifacts
+            self.artifacts_dir = os.path.join(os.path.dirname(current_dir), 'artifacts')
         else:
             self.artifacts_dir = artifacts_dir
-
-        if self.verb:
-            print(f"Resolved artifacts_dir={self.artifacts_dir}")
 
         # buffers
         self.data_buffer = {}  # topic -> deque
