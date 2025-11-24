@@ -186,11 +186,10 @@ class OfflineForecaster(SlidingWindowListener):
 
             self.data_buffer[topic].append(processed_val)
 
-            # readiness check: require target present and min length across buffers
-            if 'no2_gt' in self.data_buffer:
-                lengths = [len(v) for v in self.data_buffer.values()]
-                if lengths and min(lengths) >= required_min:
-                    should_predict = True
+            # readiness check: require minimum length across any available buffers
+            lengths = [len(v) for v in self.data_buffer.values()] if self.data_buffer else []
+            if lengths and min(lengths) >= required_min:
+                should_predict = True
 
         if should_predict:
             try:
@@ -219,11 +218,17 @@ class OfflineForecaster(SlidingWindowListener):
             'is_weekend': (timestamps.dayofweek >= 5).astype(int),
         }, index=timestamps)
 
-    def _extract_features(self):
+    def _extract_features(self, topic_key=None):
+        """
+        Build feature vector for the latest timestamp. If `topic_key` is
+        provided, ensure the corresponding column is included; otherwise
+        build features across all known topics (missing topics -> NaN).
+        Returns the latest feature row as a 1-row DataFrame or None.
+        """
         with self.buffer_lock:
-            if 'no2_gt' not in self.data_buffer:
+            if not self.data_buffer:
                 if self.verb:
-                    print('no2_gt is missing from buffer')
+                    print('No buffers present to extract features')
                 return None
             buffer_lengths = [len(v) for v in self.data_buffer.values()]
             if not buffer_lengths or min(buffer_lengths) < max(self.lag_hours) + 1:
@@ -245,8 +250,14 @@ class OfflineForecaster(SlidingWindowListener):
             timestamps = pd.date_range(end=now, periods=min_length, freq='h')
             df = pd.DataFrame(data, index=timestamps)
 
-            target_col = self.TOPIC_TO_COLUMN.get('no2_gt', self.target)
-            if target_col not in df.columns:
+            # Determine the target column for the requested topic_key (if any)
+            if topic_key is not None:
+                target_col = self.TOPIC_TO_COLUMN.get(topic_key, None)
+            else:
+                # fallback to configured target (legacy)
+                target_col = self.target
+
+            if target_col is None or target_col not in df.columns:
                 if self.verb:
                     print(f"Column {target_col} not found in data")
                 return None
@@ -257,10 +268,10 @@ class OfflineForecaster(SlidingWindowListener):
 
             # Extract numeric columns (excluding time features)
             num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c not in ['hour', 'dow', 'month', 'is_weekend']]
-            
+
             # Collect all features in a dictionary to avoid fragmentation
             feature_dict = {}
-            
+
             # Create lag and rolling features (matching training notebook)
             for c in num_cols:
                 for L in self.lag_hours:
@@ -274,7 +285,7 @@ class OfflineForecaster(SlidingWindowListener):
             feature_dict['dow'] = df_time['dow']
             feature_dict['month'] = df_time['month']
             feature_dict['is_weekend'] = df_time['is_weekend']
-            
+
             # Create DataFrame all at once to avoid fragmentation
             X = pd.DataFrame(feature_dict, index=df.index)
 
@@ -357,7 +368,7 @@ class OfflineForecaster(SlidingWindowListener):
 
             return preds
 
-        features = self._extract_features()
+        features = self._extract_features(topic_key)
         if features is None or len(features) == 0:
             if self.verb:
                 print('Insufficient data for prediction')
@@ -509,6 +520,16 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('co_gt', latest['value'])
         except Exception:
             pass
+        try:
+            preds = self.predict_for_topic('co_gt') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('co_gt', 'co_gt')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
+        except Exception:
+            pass
 
     def on_new_window_pt08_s1_co(self, data):
         if not data:
@@ -516,6 +537,16 @@ class OfflineForecaster(SlidingWindowListener):
         latest = data[-1]
         try:
             self._update_buffer('pt08_s1_co', latest['value'])
+        except Exception:
+            pass
+        try:
+            preds = self.predict_for_topic('pt08_s1_co') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('pt08_s1_co', 'pt08_s1_co')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
         except Exception:
             pass
 
@@ -527,6 +558,16 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('nmhc_gt', latest['value'])
         except Exception:
             pass
+        try:
+            preds = self.predict_for_topic('nmhc_gt') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('nmhc_gt', 'nmhc_gt')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
+        except Exception:
+            pass
 
     def on_new_window_c6h6_gt(self, data):
         if not data:
@@ -534,6 +575,16 @@ class OfflineForecaster(SlidingWindowListener):
         latest = data[-1]
         try:
             self._update_buffer('c6h6_gt', latest['value'])
+        except Exception:
+            pass
+        try:
+            preds = self.predict_for_topic('c6h6_gt') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('c6h6_gt', 'c6h6_gt')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
         except Exception:
             pass
 
@@ -545,6 +596,16 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s2_nmhc', latest['value'])
         except Exception:
             pass
+        try:
+            preds = self.predict_for_topic('pt08_s2_nmhc') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('pt08_s2_nmhc', 'pt08_s2_nmhc')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
+        except Exception:
+            pass
 
     def on_new_window_nox_gt(self, data):
         if not data:
@@ -554,6 +615,16 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('nox_gt', latest['value'])
         except Exception:
             pass
+        try:
+            preds = self.predict_for_topic('nox_gt') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('nox_gt', 'nox_gt')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
+        except Exception:
+            pass
 
     def on_new_window_pt08_s3_nox(self, data):
         if not data:
@@ -561,6 +632,16 @@ class OfflineForecaster(SlidingWindowListener):
         latest = data[-1]
         try:
             self._update_buffer('pt08_s3_nox', latest['value'])
+        except Exception:
+            pass
+        try:
+            preds = self.predict_for_topic('pt08_s3_nox') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('pt08_s3_nox', 'pt08_s3_nox')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
         except Exception:
             pass
 
@@ -573,17 +654,16 @@ class OfflineForecaster(SlidingWindowListener):
         except Exception:
             pass
 
-        # if self.verb:
-        #     print(f"[OfflineForecaster] no2_gt updated, buffer lengths: {[len(v) for v in self.data_buffer.values()]}")
-        # else:
-        #     print('no2_gt window updated')
-
-        preds = self.predict()
-        if preds:
-            if self.verb:
-                print('Forecast for NO2(GT):', preds)
-            else:
-                print('NO2(GT) Forecast:', preds)
+        try:
+            preds = self.predict_for_topic('no2_gt') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('no2_gt', 'no2_gt')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
+        except Exception:
+            pass
 
     def on_new_window_pt08_s4_no2(self, data):
         if not data:
@@ -591,6 +671,16 @@ class OfflineForecaster(SlidingWindowListener):
         latest = data[-1]
         try:
             self._update_buffer('pt08_s4_no2', latest['value'])
+        except Exception:
+            pass
+        try:
+            preds = self.predict_for_topic('pt08_s4_no2') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('pt08_s4_no2', 'pt08_s4_no2')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
         except Exception:
             pass
 
@@ -602,6 +692,16 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s5_o3', latest['value'])
         except Exception:
             pass
+        try:
+            preds = self.predict_for_topic('pt08_s5_o3') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('pt08_s5_o3', 'pt08_s5_o3')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
+        except Exception:
+            pass
 
     def on_new_window_t(self, data):
         if not data:
@@ -609,6 +709,16 @@ class OfflineForecaster(SlidingWindowListener):
         latest = data[-1]
         try:
             self._update_buffer('t', latest['value'])
+        except Exception:
+            pass
+        try:
+            preds = self.predict_for_topic('t') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('t', 't')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
         except Exception:
             pass
 
@@ -620,6 +730,16 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('rh', latest['value'])
         except Exception:
             pass
+        try:
+            preds = self.predict_for_topic('rh') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('rh', 'rh')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
+        except Exception:
+            pass
 
     def on_new_window_ah(self, data):
         if not data:
@@ -627,5 +747,15 @@ class OfflineForecaster(SlidingWindowListener):
         latest = data[-1]
         try:
             self._update_buffer('ah', latest['value'])
+        except Exception:
+            pass
+        try:
+            preds = self.predict_for_topic('ah') if not self.predict_all_topics else self.predict()
+            if preds:
+                col = self.TOPIC_TO_COLUMN.get('ah', 'ah')
+                if self.verb:
+                    print(f'Forecast for {col}:', preds)
+                else:
+                    print(f'{col} Forecast:', preds)
         except Exception:
             pass
