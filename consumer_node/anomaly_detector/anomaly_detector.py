@@ -148,7 +148,7 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             print("")
 
             # store in db
-            self.dbWriter.write_anomaly(data[obs_index], topic)
+            self.dbWriter.write_anomaly(data[obs_index], types=types, topic=topic)
 
         return is_anomalous, predictions
 
