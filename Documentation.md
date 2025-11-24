@@ -37,15 +37,19 @@ We are planning to split the time-ordered dataset at a certain data and consider
 
 ### Architecture diagram
 
-![](./resources/architecture_design.png)
+![](./_images/architecture_design.png)
 
 #### Raw data
 
 Static file containing sensor measurements related to air quality.
 
+#### Sensor data simulator
+
+Reads the raw data file and simulates flow of sensor data.
+
 #### Kafka producer
 
-Reads the raw data file and streamlines the records into Kafka topics in their datetime order.
+Streamlines the simulated sensor data into Kafka topics in their datetime order.
 
 #### PySpark consumer
 
@@ -65,7 +69,7 @@ Dashboard visualization component that periodically fetches the database for new
 
 ### Modeling diagram
 
-![](./resources/modeling_design.png)
+![](./_images/modeling_design.png)
 
 #### Static (offline) zone
 

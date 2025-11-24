@@ -4,8 +4,6 @@ System architecture diagram and team member responsibilites of **Team T5_AirQual
 
 ## I. Architecture diagram
 
-![](../resources/architecture_design.png)
-
 ### Raw data
 
 Static file containing sensor measurements related to air quality.

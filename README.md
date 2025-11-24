@@ -24,11 +24,11 @@ Here you can find the important parts of the documentation that were extracted t
 
 ### Architecture diagram
 
-![](./resources/architecture_design.png)
+![](./_images/architecture_design.png)
 
 ### Modeling diagram
 
-![](./resources/modeling_design.png)
+![](./_images/modeling_design.png)
 
 ### Team member responsibilities
 
