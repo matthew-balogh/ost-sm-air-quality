@@ -4,6 +4,7 @@ import global_statistics.IQR as IQR
 from abc import ABC, abstractmethod
 from listeners.sliding_window_listener import SlidingWindowListener
 from global_statistics.StreamStatistics import SimpleTDigest
+from InfluxDB.InfluxDbUtilities import DatabaseWriter
 
 
 class PeakPickingStrategy(ABC):
@@ -85,11 +86,13 @@ def derivateNoveltyFn(input):
 
 class InWindowAnomalyDetector(SlidingWindowListener):
     def __init__(self,
+                 dbWriter:DatabaseWriter,
                  strategies:list[PeakPickingStrategy]=[WindowOutlierStrategy(), TDigestOutlierStrategy(), MissingValueStrategy()],
                  novelty_fn=derivateNoveltyFn,
                  verb=False):
         super().__init__()
 
+        self.dbWriter = dbWriter
         self.strategies = strategies
         self.novelty_fn = novelty_fn
         self.verb = verb
@@ -143,6 +146,9 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             print("\n\t" + "-"*50)
             print("")
             print("")
+
+            # store in db
+            self.dbWriter.write_anomaly(data[obs_index], types=types, topic=topic)
 
         return is_anomalous, predictions
 

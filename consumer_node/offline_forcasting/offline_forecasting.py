@@ -7,6 +7,7 @@ from threading import Lock, Thread, Event
 import joblib
 import numpy as np
 import pandas as pd
+import traceback
 from listeners.sliding_window_listener import SlidingWindowListener
 
 
@@ -38,7 +39,10 @@ class OfflineForecaster(SlidingWindowListener):
         "ah": "AH",
     }
 
-    def __new__(cls, artifacts_dir=None, target="NO2(GT)", horizons=None, verb=False):
+    # reverse map: column name -> topic key
+    COLUMN_TO_TOPIC = {v: k for k, v in TOPIC_TO_COLUMN.items()}
+
+    def __new__(cls, artifacts_dir=None, target=None, horizons=None, verb=False):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -46,33 +50,96 @@ class OfflineForecaster(SlidingWindowListener):
                     cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, artifacts_dir=None, target="NO2(GT)", horizons=None, verb=False):
-        if getattr(self, '_initialized', False):
+    def __init__(self, artifacts_dir=None, target=None, horizons=None, verb=False, lag_hours=None, roll_windows=None, required_samples=None, max_buffer_size=50):
+        """
+        required_samples: int or dict mapping target_name -> int. If int, applies to all targets.
+        If not provided, defaults to max(lag_hours)+1 behavior.
+        max_buffer_size: maximum deque length for each topic buffer.
+        """
+        already_init = getattr(self, '_initialized', False)
+        # allow updating configuration after first init without re-creating background thread
+        if already_init:
+            # update config values if provided
+            if verb is not None:
+                self.verb = verb
+            if target is not None:
+                self.target = target
+            if horizons is not None:
+                self.horizons = horizons
+            if lag_hours is not None:
+                self.lag_hours = tuple(lag_hours)
+            if roll_windows is not None:
+                self.roll_windows = tuple(roll_windows)
+            if required_samples is not None:
+                self.required_samples = required_samples
+            if max_buffer_size is not None:
+                self.max_buffer_size = max_buffer_size
             return
 
         super().__init__()
 
         self.verb = verb
+        # do NOT hard-code a default target; allow None and resolve later
         self.target = target
         self.horizons = horizons if horizons is not None else [1, 2, 3]
 
+        # feature configuration: lags and rolling window sizes
+        # default mirrors previous hard-coded behavior
+        self.lag_hours = tuple(lag_hours) if lag_hours is not None else (1, 2, 3, 6, 12, 24)
+        self.roll_windows = tuple(roll_windows) if roll_windows is not None else (3, 6, 12)
+
+        # required_samples: exact number of historical samples to use for feature creation
+        # can be an int (applies to all targets) or a dict mapping target_name -> int
+        self.required_samples = required_samples
+
         if artifacts_dir is None:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            # Go up one level from offline_forcasting/ to app/, then join with artifacts
-            self.artifacts_dir = os.path.join(os.path.dirname(current_dir), 'artifacts')
+            # Try to locate the artifacts directory robustly: prefer env var,
+            # then search upwards from this file for a folder named 'artifacts'.
+            env_path = os.getenv('ARTIFACTS_DIR') or os.getenv('ARTIFACTS_PATH')
+            if env_path:
+                self.artifacts_dir = env_path
+            else:
+                # start from this file's directory and walk up to root
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                found = None
+                p = current_dir
+                for _ in range(6):
+                    candidate = os.path.join(p, 'artifacts')
+                    if os.path.isdir(candidate):
+                        found = candidate
+                        break
+                    p = os.path.dirname(p)
+                # also check repository-style locations
+                if not found:
+                    # try sibling at repo root (two levels up)
+                    repo_root = os.path.dirname(os.path.dirname(current_dir))
+                    candidate = os.path.join(repo_root, 'artifacts')
+                    if os.path.isdir(candidate):
+                        found = candidate
+                # final fallback: /artifacts or ./artifacts
+                if not found:
+                    for candidate in ['/artifacts', os.path.join(os.getcwd(), 'artifacts')]:
+                        if os.path.isdir(candidate):
+                            found = candidate
+                            break
+                self.artifacts_dir = found if found is not None else os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'artifacts')
         else:
             self.artifacts_dir = artifacts_dir
+
+        if self.verb:
+            print(f"Resolved artifacts_dir={self.artifacts_dir}")
 
         # buffers
         self.data_buffer = {}  # topic -> deque
         self.buffer_lock = Lock()
-        self.max_buffer_size = 50
+        self.max_buffer_size = max_buffer_size
 
-        # models & report
+        # models & report (load all available targets)
+        # structure: self.models[target_str][H{h}] = model
         self.models = {}
-        self.report = None
+        self.reports = {}
         self._load_models()
-        self._load_report()
+        self._load_reports()
 
         # prediction control
         self.prediction_interval = 10
@@ -86,42 +153,71 @@ class OfflineForecaster(SlidingWindowListener):
             print('OfflineForecaster initialized; models:', list(self.models.keys()))
 
     def _load_models(self):
-        target_safe = self.target.replace('/', '-')
-        for h in self.horizons:
-            model_path = os.path.join(self.artifacts_dir, f"model_{target_safe}_H{h}_hgb.joblib")
-            if os.path.exists(model_path):
-                try:
-                    self.models[f"H{h}"] = joblib.load(model_path)
-                    if self.verb:
-                        print(f"Loaded model H+{h} from {model_path}")
-                except Exception as e:
-                    print(f"Error loading model {model_path}: {e}")
-            else:
-                if self.verb:
-                    print(f"Model not found: {model_path}")
+        # scan artifacts dir for model files and load them grouped by target
+        try:
+            files = os.listdir(self.artifacts_dir)
+        except Exception:
+            files = []
 
-    def _load_report(self):
-        target_safe = self.target.replace('/', '-')
-        report_path = os.path.join(self.artifacts_dir, f"report_{target_safe}.json")
-        if os.path.exists(report_path):
+        if self.verb:
+            try:
+                print(f"Loading models from artifacts_dir={self.artifacts_dir}, total_files={len(files)}")
+            except Exception:
+                pass
+
+        import re
+        pattern = re.compile(r"^model_(.+)_H(\d+)_hgb\.joblib$")
+        for fn in files:
+            m = pattern.match(fn)
+            if not m:
+                continue
+            target_name = m.group(1)  # as in filename (parentheses etc retained)
+            h = int(m.group(2))
+            model_path = os.path.join(self.artifacts_dir, fn)
+            try:
+                mdl = joblib.load(model_path)
+                self.models.setdefault(target_name, {})[f"H{h}"] = mdl
+                if self.verb:
+                    print(f"Loaded model for {target_name} H+{h} from {model_path}")
+            except Exception as e:
+                print(f"Error loading model {model_path}: {e}")
+                if self.verb:
+                    import traceback as _tb
+                    _tb.print_exc()
+
+            # normalize model keys: if filenames used '-' instead of '/', allow both
+            # (no change to storage keys — they match filenames/column names)
+
+    def _load_reports(self):
+        # load any report_{target}.json files into self.reports[target]
+        try:
+            files = os.listdir(self.artifacts_dir)
+        except Exception:
+            files = []
+
+        import re
+        pattern = re.compile(r"^report_(.+)\.json$")
+        for fn in files:
+            m = pattern.match(fn)
+            if not m:
+                continue
+            target_name = m.group(1)
+            report_path = os.path.join(self.artifacts_dir, fn)
             try:
                 with open(report_path, 'r') as f:
-                    self.report = json.load(f)
+                    self.reports[target_name] = json.load(f)
                 if self.verb:
-                    print(f"Loaded report from {report_path}")
+                    print(f"Loaded report for {target_name} from {report_path}")
             except Exception as e:
                 if self.verb:
-                    print(f"Error loading report: {e}")
+                    print(f"Error loading report {report_path}: {e}")
 
     def _update_buffer(self, topic, value):
         """
         Update buffer with latest scalar reading for `topic`. If buffers have
         sufficient aligned history, call predict() (outside the lock).
         """
-        should_predict = False
-        lag_hours = (1, 2, 3, 6, 12, 24)
-        required_min = max(lag_hours) + 1
-
+        # update buffer with the new sample (no auto-prediction here)
         with self.buffer_lock:
             if topic not in self.data_buffer:
                 self.data_buffer[topic] = deque(maxlen=self.max_buffer_size)
@@ -135,24 +231,9 @@ class OfflineForecaster(SlidingWindowListener):
                     processed_val = np.nan
 
             self.data_buffer[topic].append(processed_val)
-
-            # readiness check: require target present and min length across buffers
-            if 'no2_gt' in self.data_buffer:
-                lengths = [len(v) for v in self.data_buffer.values()]
-                if lengths and min(lengths) >= required_min:
-                    should_predict = True
-
-        if should_predict:
-            try:
-                preds = self.predict()
-                if preds:
-                    if self.verb:
-                        print(f"[Auto-predict] {preds}")
-                    else:
-                        print(f"NO2(GT) Forecast: {preds}")
-            except Exception as e:
-                if self.verb:
-                    print(f"Error running auto-predict: {e}")
+            # Note: we no longer auto-predict here. Handlers (on_new_window_*)
+            # call predict() explicitly after updating the buffer. The periodic
+            # prediction loop will also run predictions for loaded targets.
 
     def _add_time_features(self, n_samples):
         """
@@ -169,40 +250,67 @@ class OfflineForecaster(SlidingWindowListener):
             'is_weekend': (timestamps.dayofweek >= 5).astype(int),
         }, index=timestamps)
 
-    def _extract_features(self, lag_hours=(1, 2, 3, 6, 12, 24), roll_windows=(3, 6, 12)):
+    def _get_required_samples_for_target(self, target_name):
+        """Return exact required samples (int) for a target_name.
+        If `self.required_samples` is an int, return that.
+        If it's a dict, return value for target_name if present.
+        Otherwise default to max(self.lag_hours) + 1.
+        """
+        if self.required_samples is None:
+            return max(self.lag_hours) + 1
+        if isinstance(self.required_samples, int):
+            return int(self.required_samples)
+        if isinstance(self.required_samples, dict):
+            return int(self.required_samples.get(target_name, max(self.lag_hours) + 1))
+        # fallback
+        return max(self.lag_hours) + 1
+
+    def _extract_features(self, lag_hours=None, roll_windows=None, target=None):
+        # target: target column name like 'NO2(GT)' or similar. If not provided, use self.target
+        # lag_hours / roll_windows: optional overrides (tuples). If not provided, use instance config.
+        target_name = target if target is not None else self.target
+        # if still None, try to pick the first loaded model target as default
+        if target_name is None:
+            target_name = next(iter(self.models.keys()), None)
+            if target_name is None:
+                if self.verb:
+                    print('No target specified and no models loaded')
+                return None
+        target_topic = self.COLUMN_TO_TOPIC.get(target_name)
+        lag_hours = tuple(lag_hours) if lag_hours is not None else self.lag_hours
+        roll_windows = tuple(roll_windows) if roll_windows is not None else self.roll_windows
         with self.buffer_lock:
-            if 'no2_gt' not in self.data_buffer:
+            required = self._get_required_samples_for_target(target_name)
+            # require that target's own buffer has at least `required` samples
+            if target_topic not in self.data_buffer or len(self.data_buffer[target_topic]) < required:
                 if self.verb:
-                    print('no2_gt is missing from buffer')
+                    have = len(self.data_buffer.get(target_topic, []))
+                    print(f'Insufficient buffer for {target_topic or target_name}: {have}, need at least {required}')
                 return None
-            buffer_lengths = [len(v) for v in self.data_buffer.values()]
-            if not buffer_lengths or min(buffer_lengths) < max(lag_hours) + 1:
-                if self.verb:
-                    print(f'Insufficient buffer length: {min(buffer_lengths) if buffer_lengths else 0}, need at least {max(lag_hours) + 1}')
-                return None
-            min_length = min(buffer_lengths)
 
             data = {}
             for topic, col in self.TOPIC_TO_COLUMN.items():
-                if topic in self.data_buffer:
-                    values = list(self.data_buffer[topic])[-min_length:]
-                    data[col] = values
+                vals = list(self.data_buffer.get(topic, []))
+                if len(vals) >= required:
+                    values = vals[-required:]
                 else:
-                    data[col] = [np.nan] * min_length
+                    # left-pad with NaNs so all columns have length `required`
+                    pad = [np.nan] * (required - len(vals))
+                    values = pad + vals
+                data[col] = values
 
             # Create DataFrame with DatetimeIndex (hourly frequency going backwards from now)
             now = datetime.now()
-            timestamps = pd.date_range(end=now, periods=min_length, freq='h')
+            timestamps = pd.date_range(end=now, periods=required, freq='h')
             df = pd.DataFrame(data, index=timestamps)
-
-            target_col = self.TOPIC_TO_COLUMN.get('no2_gt', self.target)
+            target_col = self.TOPIC_TO_COLUMN.get(target_topic, target_name)
             if target_col not in df.columns:
                 if self.verb:
                     print(f"Column {target_col} not found in data")
                 return None
 
             # Add time features
-            df_time = self._add_time_features(min_length)
+            df_time = self._add_time_features(required)
             df = pd.concat([df, df_time], axis=1)
 
             # Extract numeric columns (excluding time features)
@@ -236,53 +344,119 @@ class OfflineForecaster(SlidingWindowListener):
                 print('No data after feature extraction')
             return None
 
-    def predict(self, horizon=None):
-        features = self._extract_features()
+    def predict(self, horizon=None, target=None):
+        # target: string matching loaded model keys (e.g. 'NO2(GT)', 'CO(GT)')
+        target_key = target if target is not None else self.target
+        if target_key is None:
+            target_key = next(iter(self.models.keys()), None)
+            if target_key is None:
+                if self.verb:
+                    print('No target specified and no models loaded to predict')
+                return None
+        features = self._extract_features(target=target_key)
         if features is None or len(features) == 0:
             if self.verb:
                 print('Insufficient data for prediction')
-            self.last_predictions = None
+            # keep previous predictions untouched
             return None
-
         preds = {}
         horizons_to_predict = [horizon] if horizon is not None else self.horizons
+
+        models_for_target = self.models.get(target_key, {})
+        if self.verb:
+            try:
+                print(f"Predicting for target={target_key}, horizons={horizons_to_predict}, available_models={list(models_for_target.keys())}")
+            except Exception:
+                pass
+
         for h in horizons_to_predict:
             key = f'H{h}'
-            if key in self.models:
-                model = self.models[key]
+            if key in models_for_target:
+                model = models_for_target[key]
                 try:
-                    # Handle skitileran Pipeline objects - feature_names_in_ is on the final estimator
+                    # Handle sklearn Pipeline objects - feature_names_in_ is on the final estimator
+                    fn = None
                     if hasattr(model, 'feature_names_in_'):
                         fn = model.feature_names_in_
-                        Xord = features.reindex(columns=fn, fill_value=np.nan)
-                    elif hasattr(model, 'named_steps') and hasattr(model.named_steps.get('model'), 'feature_names_in_'):
-                        # For Pipeline objects, get feature names from the final estimator
-                        fn = model.named_steps['model'].feature_names_in_
+                    elif hasattr(model, 'named_steps'):
+                        # attempt to find a step that has feature_names_in_
+                        for step in model.named_steps.values():
+                            if hasattr(step, 'feature_names_in_'):
+                                fn = step.feature_names_in_
+                                break
+
+                    if self.verb:
+                        try:
+                            print(f"Model {key} feature_names_in_: {fn}")
+                        except Exception:
+                            pass
+
+                    if fn is not None:
                         Xord = features.reindex(columns=fn, fill_value=np.nan)
                     else:
                         Xord = features
+
                     p = model.predict(Xord)[0]
                     preds[f'H+{h}'] = float(p)
                 except Exception as e:
                     if self.verb:
-                        print(f'Error predicting H+{h}: {e}')
+                        print(f'Error predicting {target_key} H+{h}: {e}')
+                        traceback.print_exc()
                     preds[f'H+{h}'] = None
             else:
                 preds[f'H+{h}'] = None
 
-        self.last_predictions = preds
+        # store per-target last predictions
+        if not hasattr(self, 'last_predictions') or self.last_predictions is None:
+            self.last_predictions = {}
+        self.last_predictions[target_key] = preds
         return preds
 
     def _prediction_loop(self):
         while not self._stop_event.is_set():
             try:
-                preds = self.predict()
-                if preds and not self.verb:
-                    print(f'[Periodic Prediction] {preds}')
+                # run predictions for all loaded targets
+                for target_key in list(self.models.keys()):
+                    try:
+                        preds = self.predict(target=target_key)
+                        if preds and not self.verb:
+                            print(f'[Periodic Prediction {target_key}] {preds}')
+                    except Exception:
+                        if self.verb:
+                            print(f'Error predicting {target_key} in periodic loop')
             except Exception:
                 if self.verb:
                     print('Error in prediction loop')
             self._stop_event.wait(self.prediction_interval)
+
+        def inspect_models(self):
+            """Return summary of loaded models and any detected feature_names_in_.
+
+            Useful for debugging whether models were loaded and what feature names
+            they expect. Does not run predictions.
+            """
+            out = {}
+            for target, models in self.models.items():
+                out[target] = {}
+                for k, m in models.items():
+                    fn = None
+                    try:
+                        if hasattr(m, 'feature_names_in_'):
+                            fn = list(m.feature_names_in_)
+                        elif hasattr(m, 'named_steps'):
+                            for step in m.named_steps.values():
+                                if hasattr(step, 'feature_names_in_'):
+                                    fn = list(step.feature_names_in_)
+                                    break
+                    except Exception:
+                        fn = None
+                    out[target][k] = {'feature_names_in_': fn}
+            if self.verb:
+                try:
+                    print('inspect_models:', out)
+                except Exception:
+                    pass
+            return out
 
     def stop(self, join_timeout=2):
         self._stop_event.set()
@@ -304,6 +478,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('co_gt', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['co_gt']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_pt08_s1_co(self, data):
         if not data:
@@ -313,6 +494,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s1_co', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s1_co']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_nmhc_gt(self, data):
         if not data:
@@ -322,6 +510,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('nmhc_gt', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['nmhc_gt']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_c6h6_gt(self, data):
         if not data:
@@ -331,6 +526,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('c6h6_gt', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['c6h6_gt']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_pt08_s2_nmhc(self, data):
         if not data:
@@ -340,6 +542,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s2_nmhc', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s2_nmhc']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_nox_gt(self, data):
         if not data:
@@ -349,6 +558,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('nox_gt', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['nox_gt']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_pt08_s3_nox(self, data):
         if not data:
@@ -358,6 +574,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s3_nox', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s3_nox']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_no2_gt(self, data):
         if not data:
@@ -373,12 +596,14 @@ class OfflineForecaster(SlidingWindowListener):
         # else:
         #     print('no2_gt window updated')
 
-        preds = self.predict()
+        # no2 handler: use explicit target name for clarity
+        target_name = self.TOPIC_TO_COLUMN['no2_gt']
+        preds = self.predict(target=target_name)
         if preds:
             if self.verb:
-                print('Forecast for NO2(GT):', preds)
+                print('Forecast for', target_name + ':', preds)
             else:
-                print('NO2(GT) Forecast:', preds)
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_pt08_s4_no2(self, data):
         if not data:
@@ -388,6 +613,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s4_no2', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s4_no2']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_pt08_s5_o3(self, data):
         if not data:
@@ -397,6 +629,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s5_o3', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s5_o3']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_t(self, data):
         if not data:
@@ -406,6 +645,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('t', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['t']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_rh(self, data):
         if not data:
@@ -415,6 +661,13 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('rh', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['rh']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_ah(self, data):
         if not data:
@@ -424,3 +677,10 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('ah', latest['value'])
         except Exception:
             pass
+        target_name = self.TOPIC_TO_COLUMN['ah']
+        preds = self.predict(target=target_name)
+        if preds:
+            if self.verb:
+                print('Forecast for', target_name + ':', preds)
+            else:
+                print(f"{target_name} Forecast:", preds)
