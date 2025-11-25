@@ -104,8 +104,7 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             print("InWindowAnomalyDetector started")
             print("-------------------------------")
 
-    # TODO: replicate to other methods / merge methods
-    def on_new_window_co_gt(self, data):
+    def detect(self, data):
         obs_index = -1
         topic = data[obs_index]["topic"]
 
@@ -151,51 +150,46 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             self.dbWriter.write_anomaly(data[obs_index], types=types, topic=topic)
 
         return is_anomalous, predictions
+    
+    # detect anomalies in sensor data
 
     def on_new_window_pt08_s1_co(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-    def on_new_window_nmhc_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-    def on_new_window_c6h6_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_pt08_s2_nmhc(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-    def on_new_window_nox_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_pt08_s3_nox(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-    def on_new_window_no2_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_pt08_s4_no2(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_pt08_s5_o3(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_t(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_ah(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_rh(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
+    
+    # skip anomaly detection on reference data
+    
+    def on_new_window_co_gt(self, data):
+        pass
+
+    def on_new_window_nmhc_gt(self, data):
+        pass
+
+    def on_new_window_c6h6_gt(self, data):
+        pass
+
+    def on_new_window_nox_gt(self, data):
+        pass
+
+    def on_new_window_no2_gt(self, data):
+        pass
