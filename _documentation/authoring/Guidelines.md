@@ -1,21 +1,4 @@
-# Open-source Technologies and Stream Mining joint Project Documentation
-
-*Smart City Air Quality Monitoring with Real-Time Stream Analytics (SCAir-IoT)*
-
-Keywords: *Anomaly detection, Forecasting, Stream mining, Open-source technologies*
-
-**Authors**
-
-Albazzal, Houmam \
-Balogh, Máté \
-Földvári, Ádám \
-Lahmar, Abderraouf \
-Nagy, Zsuzsanna
-
-**Mentored by**
-
-Loubna Seddiki
-
+# Guidelines
 
 ## Abstract
 
@@ -23,13 +6,11 @@ Loubna Seddiki
 > Structured abstract (up to 200 words): \
 > background, goal, method, results, impact
 
-
 ## Introduction
 
 > [!NOTE]
 > Introduction (up to 1 pp): \
 > includes a references to relevant scientific papers, standards and technologies
-
 
 ## Dataset
 

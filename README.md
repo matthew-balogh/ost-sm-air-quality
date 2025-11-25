@@ -27,7 +27,7 @@ The repository itself is organized as follows:
 * `_images/`: Images included in other files
 * `_reports/`: In-semester reports related to the project
 * `_dashboards/`: Screenshots of implemented dashboards
-* `Documentation.md`: The formal documentation of the project
+* `_documentation/`: The formal documentation of the project
 
 ## Overview of the utilized technologies
 
