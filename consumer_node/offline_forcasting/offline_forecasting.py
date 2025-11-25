@@ -24,14 +24,9 @@ class OfflineForecaster(SlidingWindowListener):
     _lock = Lock()
 
     TOPIC_TO_COLUMN = {
-        "co_gt": "CO(GT)",
         "pt08_s1_co": "PT08.S1(CO)",
-        "nmhc_gt": "NMHC(GT)",
-        "c6h6_gt": "C6H6(GT)",
         "pt08_s2_nmhc": "PT08.S2(NMHC)",
-        "nox_gt": "NOx(GT)",
         "pt08_s3_nox": "PT08.S3(NOx)",
-        "no2_gt": "NO2(GT)",
         "pt08_s4_no2": "PT08.S4(NO2)",
         "pt08_s5_o3": "PT08.S5(O3)",
         "t": "T",
@@ -129,6 +124,24 @@ class OfflineForecaster(SlidingWindowListener):
         except Exception:
             files = []
 
+        # Workaround: some saved models contain numpy Generator state that
+        # references PCG64 (numpy.random._pcg64.PCG64). Older/newer numpy
+        # runtimes may not recognize that BitGenerator name when unpickling.
+        # Register PCG64 in numpy's pickle constructors if possible so
+        # joblib.load can reconstruct RNG state embedded in model objects.
+        try:
+            try:
+                # local imports to avoid hard dependency at module import time
+                from numpy.random._pcg64 import PCG64
+                import numpy.random._pickle as _npr_pickle
+                # key expected by numpy's unpickler is the class name 'PCG64'
+                _npr_pickle._bit_generator_constructors['PCG64'] = PCG64
+            except Exception:
+                # if private API differs or import fails, skip silently
+                pass
+        except Exception:
+            pass
+
         if self.verb:
             try:
                 print(f"Loading models from artifacts_dir={self.artifacts_dir}, total_files={len(files)}")
@@ -147,8 +160,6 @@ class OfflineForecaster(SlidingWindowListener):
             try:
                 mdl = joblib.load(model_path)
                 self.models.setdefault(target_name, {})[f"H{h}"] = mdl
-                if self.verb:
-                    print(f"Loaded model for {target_name} H+{h} from {model_path}")
             except Exception as e:
                 print(f"Error loading model {model_path}: {e}")
                 if self.verb:
@@ -333,11 +344,6 @@ class OfflineForecaster(SlidingWindowListener):
         horizons_to_predict = [horizon] if horizon is not None else self.horizons
 
         models_for_target = self.models.get(target_key, {})
-        if self.verb:
-            try:
-                print(f"Predicting for target={target_key}, horizons={horizons_to_predict}, available_models={list(models_for_target.keys())}")
-            except Exception:
-                pass
 
         for h in horizons_to_predict:
             key = f'H{h}'
@@ -354,12 +360,6 @@ class OfflineForecaster(SlidingWindowListener):
                             if hasattr(step, 'feature_names_in_'):
                                 fn = step.feature_names_in_
                                 break
-
-                    if self.verb:
-                        try:
-                            print(f"Model {key} feature_names_in_: {fn}")
-                        except Exception:
-                            pass
 
                     if fn is not None:
                         Xord = features.reindex(columns=fn, fill_value=np.nan)
@@ -389,8 +389,8 @@ class OfflineForecaster(SlidingWindowListener):
                 for target_key in list(self.models.keys()):
                     try:
                         preds = self.predict(target=target_key)
-                        if preds and not self.verb:
-                            print(f'[Periodic Prediction {target_key}] {preds}')
+                        if preds:
+                            print(f'OfflineForecaster: [Periodic] {target_key} -> {preds}')
                     except Exception:
                         if self.verb:
                             print(f'Error predicting {target_key} in periodic loop')
@@ -440,21 +440,6 @@ class OfflineForecaster(SlidingWindowListener):
             pass
 
     # sliding-window callbacks: update buffer with latest value
-    def on_new_window_co_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('co_gt', latest['value'])
-        except Exception:
-            pass
-        target_name = self.TOPIC_TO_COLUMN['co_gt']
-        preds = self.predict(target=target_name)
-        if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
 
     def on_new_window_pt08_s1_co(self, data):
         if not data:
@@ -467,42 +452,7 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s1_co']
         preds = self.predict(target=target_name)
         if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
-
-    def on_new_window_nmhc_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('nmhc_gt', latest['value'])
-        except Exception:
-            pass
-        target_name = self.TOPIC_TO_COLUMN['nmhc_gt']
-        preds = self.predict(target=target_name)
-        if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
-
-    def on_new_window_c6h6_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('c6h6_gt', latest['value'])
-        except Exception:
-            pass
-        target_name = self.TOPIC_TO_COLUMN['c6h6_gt']
-        preds = self.predict(target=target_name)
-        if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_pt08_s2_nmhc(self, data):
         if not data:
@@ -515,26 +465,7 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s2_nmhc']
         preds = self.predict(target=target_name)
         if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
-
-    def on_new_window_nox_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('nox_gt', latest['value'])
-        except Exception:
-            pass
-        target_name = self.TOPIC_TO_COLUMN['nox_gt']
-        preds = self.predict(target=target_name)
-        if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_pt08_s3_nox(self, data):
         if not data:
@@ -547,33 +478,7 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s3_nox']
         preds = self.predict(target=target_name)
         if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
-
-    def on_new_window_no2_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('no2_gt', latest['value'])
-        except Exception:
-            pass
-
-        # if self.verb:
-        #     print(f"[OfflineForecaster] no2_gt updated, buffer lengths: {[len(v) for v in self.data_buffer.values()]}")
-        # else:
-        #     print('no2_gt window updated')
-
-        # no2 handler: use explicit target name for clarity
-        target_name = self.TOPIC_TO_COLUMN['no2_gt']
-        preds = self.predict(target=target_name)
-        if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_pt08_s4_no2(self, data):
         if not data:
@@ -586,10 +491,7 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s4_no2']
         preds = self.predict(target=target_name)
         if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_pt08_s5_o3(self, data):
         if not data:
@@ -602,10 +504,7 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s5_o3']
         preds = self.predict(target=target_name)
         if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_t(self, data):
         if not data:
@@ -618,10 +517,7 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['t']
         preds = self.predict(target=target_name)
         if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_rh(self, data):
         if not data:
@@ -634,10 +530,7 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['rh']
         preds = self.predict(target=target_name)
         if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_ah(self, data):
         if not data:
@@ -650,7 +543,4 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['ah']
         preds = self.predict(target=target_name)
         if preds:
-            if self.verb:
-                print('Forecast for', target_name + ':', preds)
-            else:
-                print(f"{target_name} Forecast:", preds)
+            print(f"OfflineForecaster: {target_name} -> {preds}")

@@ -1,4 +1,4 @@
-ostvenv
+venv
 .idea
 .DS_Store
 **.pyc
@@ -8,3 +8,4 @@ consumer_node/venv
 artifacts
 AirQualityUCI.csv
 \outputs
+*.png

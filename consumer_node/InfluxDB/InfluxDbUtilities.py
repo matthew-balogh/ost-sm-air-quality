@@ -6,7 +6,7 @@ from influxdb_client_3 import (
   InfluxDBClient3, InfluxDBError, Point, WritePrecision,
   WriteOptions, write_client_options)
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from listeners.sliding_window_listener import SlidingWindowListener
 
 from dotenv import load_dotenv
@@ -108,17 +108,18 @@ class DatabaseWriter(SlidingWindowListener):
                             "local": "local" in types,
                             "global": "global" in types,
                         }, anomalous_sample['key'])
-
-
-
-    def on_new_window_co_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-        last_item = data[-1]
-        self._write_value_and_predictions(topic='co_gt', last_item=last_item)
-
+        
+        
+    def write_trend(self, sample, type, topic):
+        '''
+        data should have the same structure as other stream data + trend type + topic name (e.g: co_gt,...).
+    
+        '''
+        self.write_data("trend", {"topic": topic},
+                        {
+                            "value": sample['value'],
+                            "type": type,
+                        }, sample['key'])
 
 
 
@@ -130,20 +131,6 @@ class DatabaseWriter(SlidingWindowListener):
         self._write_value_and_predictions(topic='pt08_s1_co', last_item=last_item)
 
 
-    def on_new_window_nmhc_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-        last_item = data[-1]
-        self._write_value_and_predictions(topic='nmhc_gt', last_item=last_item)
-
-    def on_new_window_c6h6_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-        last_item = data[-1]
-        self._write_value_and_predictions(topic='c6h6_gt', last_item=last_item)
-
     def on_new_window_pt08_s2_nmhc(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
@@ -151,26 +138,12 @@ class DatabaseWriter(SlidingWindowListener):
         last_item = data[-1]
         self._write_value_and_predictions(topic='pt08_s2_nmhc', last_item=last_item)
 
-    def on_new_window_nox_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-        last_item = data[-1]
-        self._write_value_and_predictions(topic='nox_gt', last_item=last_item)
-
     def on_new_window_pt08_s3_nox(self, data):
         if self.verbose:
             print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
             print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
         last_item = data[-1]
         self._write_value_and_predictions(topic='pt08_s3_nox', last_item=last_item)
-
-    def on_new_window_no2_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-        last_item = data[-1]
-        self._write_value_and_predictions(topic='no2_gt', last_item=last_item)
 
     def on_new_window_pt08_s4_no2(self, data):
         if self.verbose:
@@ -207,8 +180,21 @@ class DatabaseWriter(SlidingWindowListener):
         last_item = data[-1]
         self._write_value_and_predictions(topic='rh', last_item=last_item)
 
+    def on_new_window_c6h6_gt(self, data):
+        pass
 
+    def on_new_window_co_gt(self, data):
+        pass
 
+    def on_new_window_nmhc_gt(self, data):
+        pass
+
+    def on_new_window_no2_gt(self, data):
+        pass
+
+    def on_new_window_nox_gt(self, data):
+        pass
+    
             
     def write_data(self,table_name,tags,fields,Measurement_time):
         '''
@@ -225,33 +211,93 @@ class DatabaseWriter(SlidingWindowListener):
             "tags": tags,
             "fields": fields,
             "time": unixTime
-            }    
-        
-        self.client.write(points);
+            }
+
+        try:
+            self.client.write(points)
+        except Exception as e:
+            # log error for debugging
+            print(f"InfluxDB write error for measurement={table_name}, tags={tags}, time={Measurement_time}: {e}")
+
+    def write_prediction(self, topic, preds, Measurement_time):
+        """
+        Write prediction fields into the `environment` measurement for the given
+        `topic` tag. `preds` is a dict like {'H+1': 12.3, 'H+2': 11.1}.
+        This will prefix field names with `pred_` to avoid collision with the
+        sensor `value` field.
+        """
+        if not isinstance(preds, dict):
+            return
+
+        fields = {}
+        for k, v in preds.items():
+            # normalize key to a safe field name (remove '+' and spaces)
+            safe_key = k.replace('+', '').replace(' ', '_')
+            field_name = f"pred_{safe_key}"
+            # convert None to NaN for Influx
+            fields[field_name] = (v if v is not None else float('nan'))
+
+        # use the same measurement and tag schema as other writes
+        try:
+            if self.verbose:
+                print(f"write_prediction: topic={topic}, fields={fields}, time={Measurement_time}")
+            self.write_data("environment", {"topic": topic}, fields, Measurement_time)
+        except Exception as e:
+            if self.verbose:
+                print(f"Error writing prediction for {topic}: {e}")
 
 
     def _write_value_and_predictions(self, topic, last_item):
         """Write the measurement `environment` with the observed `value` plus
         any predictions available from OfflineForecaster for this topic.
         """
-        fields = {"value": last_item['value']}
-        # attempt to get predictions for the corresponding column name
+        # Build the observed point and include predictions in the same point
         try:
+            # Start with observed value
+            obs_fields = {"value": last_item['value']}
+
+            # attempt to get predictions for the corresponding column name
+            preds = None
             if getattr(self, 'forecaster', None) is not None:
-                # map topic -> column name used by the forecaster
                 topic_to_col = self.forecaster.TOPIC_TO_COLUMN
                 target_name = topic_to_col.get(topic)
                 if target_name is not None:
-                    preds = self.forecaster.predict(target=target_name)
-                    if preds:
-                        # add prediction fields like pred_H+1, pred_H+2
-                        for k, v in preds.items():
-                            fields[f"pred_{k}"] = v
+                    try:
+                        preds = self.forecaster.predict(target=target_name)
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"Error calling forecaster.predict for {target_name}: {e}")
+
+                    if self.verbose:
+                        print(f"DatabaseWriter: predict() returned for {target_name}: {preds}")
+
+                    # If predict() returned nothing, fall back to most recent periodic predictions
+                    if not preds:
+                        try:
+                            last = getattr(self.forecaster, 'last_predictions', None)
+                            if last is not None and target_name in last:
+                                preds = last.get(target_name)
+                                if self.verbose:
+                                    print(f"DatabaseWriter: using last_predictions for {target_name}: {preds}")
+                        except Exception as e:
+                            if self.verbose:
+                                print(f"Error accessing last_predictions for {target_name}: {e}")
+
+            # If we have predictions, attach them to the observed point (temporary UI-friendly behavior)
+            if preds:
+                for k, v in preds.items():
+                    # sanitize key (e.g. 'H+1' -> 'H1')
+                    safe_k = k.replace('+', '')
+                    obs_fields[f"pred_{safe_k}"] = v
+
+            # Write single combined point (value + predictions)
+            self.write_data("environment", {"topic": topic}, obs_fields, last_item['key'])
         except Exception as e:
             if self.verbose:
-                print(f"Error fetching predictions for {topic}: {e}")
-
-        self.write_data("environment", {"topic": topic}, fields, last_item['key'])
+                print(f"Error writing observed value and predictions for {topic}: {e}")
+        except Exception as e:
+            if self.verbose:
+                print(f"Error fetching/writing predictions for {topic}: {e}")
     
 
 
