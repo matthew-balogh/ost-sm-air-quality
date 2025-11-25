@@ -4,6 +4,14 @@ This repository is for the joint project of subjects **Open-source Technologies*
 
 Project guidelines: [Open guidelines](https://docs.google.com/document/d/1fuBle3d4tmhY9IHqBDA9KwckhSqOCugGWldIe8CeRHc/edit?tab=t.0#heading=h.mzrt1sfgv63y)
 
+## About the project
+
+In this project, sensor data related to air quality is simulated, streamlined, processed, modeled, stored, and visualized to develop a full-stack *stream mining* data science project powered by *open-source technologies*.
+
+The sensor data includes readings of pollutants such as *Carbon Monoxide (CO)*, *Nitrogen Dioxide (NO2)*, along with measurements of *Temperature*, and *Absolute* / *Relative Humidity*.
+
+Objectives are to detect abnormal changes in the sensor readings and to create short-term forecasts to support planning and public health responses in the simulation.
+
 ## Team members
 
 * Albazzal, Houmam [(🐙 dolorsy)](https://github.com/dolorsy)
@@ -14,19 +22,24 @@ Project guidelines: [Open guidelines](https://docs.google.com/document/d/1fuBle3
 
 ## Structure of the repository
 
-Tasks are managed at the [GitHub Board](https://github.com/users/matthew-balogh/projects/5).
+The repository itself is organized as follows:
 
-The documentation can be found in [Documentation.md](Documentation.md). It includes project planning, literature review, data science and development documentations.
+* `_images/`: Images included in other files
+* `_reports/`: In-semester reports related to the project
+* `_dashboards/`: Screenshots of implemented dashboards
+* `Documentation.md`: The formal documentation of the project
 
-## Important elements from the documentation
-
-Here you can find the important parts of the documentation that were extracted to be easily accessed here.
+## Overview of the utilized technologies
 
 ### Architecture diagram
+
+High-level architecture design of the full-stack project denoting the selected open-source technology for each stage of the pipeline.
 
 ![](./_images/architecture_design.png)
 
 ### Modeling diagram
+
+High-level view of the online machine learning pipeline.
 
 ![](./_images/modeling_design.png)
 
