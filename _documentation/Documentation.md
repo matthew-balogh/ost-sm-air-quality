@@ -1,6 +1,19 @@
 # Open-source Technologies and Stream Mining joint Project Documentation
 
 
+-   [<span class="toc-section-number">1</span>
+    Introduction](#introduction)
+-   [<span class="toc-section-number">2</span> Background and Literature
+    Review](#background-and-literature-review)
+-   [<span class="toc-section-number">3</span> Dataset](#dataset)
+-   [<span class="toc-section-number">4</span> System
+    architecture](#system-architecture)
+-   [<span class="toc-section-number">5</span> Modeling and
+    Predictions](#modeling-and-predictions)
+-   [<span class="toc-section-number">6</span> Experiments and
+    testing](#experiments-and-testing)
+-   [<span class="toc-section-number">7</span> References](#references)
+
 *Smart City Air Quality Monitoring with Real-Time Stream Analytics
 (SCAir-IoT)*
 
@@ -48,18 +61,20 @@ The authors refer to *Babcock et al. (2002)*, highlighting that
 ## Dataset
 
 The dataset is the *UCI Air Quality* dataset *Vito, S. (2008)* which
-includes responses of gas sensor devices deployed in an Italian city in
-an hourly averaged fashion. Besides these device readings, each gas
-measurement has a counterpart feature which denotes the gas
-concentration recorded by a co-located certified analyzer. Additionally,
-readings related to temperature along with absolute and relative
-humidity are included in the dataset. Missing values are denoted with
-the value of `-200`.
+includes responses of gas sensor devices deployed in an Italian city.
+Besides these device readings, each gas measurement has a counterpart
+feature which denotes the gas concentration recorded by a co-located
+certified analyzer. Additionally, readings related to temperature along
+with absolute and relative humidity are included in the dataset.
+
+The records span 1 year from March 2004 to February 2025, and are
+present in hourly aggregated form. Missing values are denoted with the
+value of `-200`.
 
 ## System architecture
 
 <figure>
-<img src="../../_images/architecture_design.png"
+<img src="../_images/architecture_design.png"
 alt="High-level view of the architecture with the utilized open-source technologies denoted for each component." />
 <figcaption aria-hidden="true">High-level view of the architecture with
 the utilized open-source technologies denoted for each
@@ -96,6 +111,34 @@ anomaly detection related information and alerts.
 
 **Grafana**: Dashboard visualization component that periodically fetches
 the database for new data to show the latest insights in real-time.
+
+## Modeling and Predictions
+
+<figure>
+<img src="../_images/modeling_design.png"
+alt="High-level view of the offline and online machine learning pipeline." />
+<figcaption aria-hidden="true">High-level view of the offline and online
+machine learning pipeline.</figcaption>
+</figure>
+
+For *Anomaly Detection*, three simple yet essential methods were
+utilized by following a general novelty detection procedure:
+
+1.  Data transformation, to better reflect properties of interest
+2.  Obtain a novelty function
+3.  Apply peak picking algorithm on the novelty function.
+
+Values of `-200` were replaced with `NA`. First, readings with missing
+values—meaning no value for a sensor for an entire hour—were detected.
+As a second method, missing values were imputed with the median of an
+8-sample window, derivative operator was applied on this data, and
+positive peaks were considered by clipping negative changes to zero,
+only to apply a traditional IQR-based outlier detection on this obtained
+novelty function where `NA`s were re-inserted after the derivative
+function. As for a third approach, the same novelty detection was
+followed but percentiles were calculated based on an iteratively updated
+and maintained *T-digest* algorithm accounting for a global opinion on
+abnormal readings.
 
 ## Experiments and testing
 
