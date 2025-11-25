@@ -12,18 +12,18 @@ First, install `quarto`:
 pip install quarto
 ```
 
-Then, modify [Documentation.qmd](./authoring/Documentation.qmd) under `_documentation/authoring` directory.
+Then, modify [Documentation.qmd](./Documentation.qmd) under `_documentation` directory.
 
 For live edit, execute:
 
 ```bash
-quarto preview _documentation/authoring/Documentation.qmd --to pdf
+quarto preview _documentation/Documentation.qmd --to pdf
 ```
 
 Then, render into `pdf` and `md` files by executing:
 
 ```bash
-quarto render _documentation/authoring/Documentation.qmd --output-dir ..
+quarto render _documentation/Documentation.qmd
 ```
 
 Finally, push your changes.
