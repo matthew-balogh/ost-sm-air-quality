@@ -55,7 +55,7 @@ services:
           "--list",
         ]
       interval: 5s
-      timeout: 10s
+      timeout: 80s
       retries: 3
 
   kafka-ui:
