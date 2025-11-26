@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 import os
 import sys
 
-from offline_forcasting.offline_forecasting import OfflineForecaster
+# offline forecaster removed; use OnlineForecaster instead
 from sensor_topics import SENSOR_TOPICS
 from anomaly_detector.anomaly_detector import InWindowAnomalyDetector
 from InfluxDB import InfluxDbUtilities
@@ -75,7 +75,6 @@ class KafkaStreamReader:
             self.observers.remove(observer)
 
 if __name__ == "__main__":
-
     reader = KafkaStreamReader()
 
     databaseWriter = InfluxDbUtilities.DatabaseWriter(verbose=True)
@@ -84,15 +83,23 @@ if __name__ == "__main__":
     anomalyDetector = InWindowAnomalyDetector(dbWriter=databaseWriter, verb=True)
     reader.register_observer(anomalyDetector)
 
-    forecaster = OfflineForecaster(
-        verb=True,
-        lag_hours=(1,2,3),
-        write_predictions=True,
-        predict_all_topics=True,
-        influx_table='predictions',
-        influx_tags={'source': 'offline_forecaster'}
-    )
-    reader.register_observer(forecaster)
-    # Run a one-shot diagnostics call at startup to list loaded models and test predictions
-    forecaster.run_diagnostics()
+    # Register only the OnlineForecaster. If it's not available, the
+    # pipeline will still run (database + anomaly detector) but no
+    # forecasting will be performed.
+    try:
+        try:
+            from online_forecasting import OnlineForecaster
+        except Exception:
+            from consumer_node.online_forecasting import OnlineForecaster
+        # allow tuning minimum samples required before forecasting via env var
+        rs_env = os.getenv('FORECAST_REQUIRED_SAMPLES')
+        try:
+            rs_val = int(rs_env) if rs_env is not None else None
+        except Exception:
+            rs_val = None
+        forecaster = OnlineForecaster(db_writer=databaseWriter, verb=True, required_samples=rs_val)
+        reader.register_observer(forecaster)
+    except Exception:
+        print('OnlineForecaster not available; running without forecaster')
+
     reader.run()

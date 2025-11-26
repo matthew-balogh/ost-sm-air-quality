@@ -103,9 +103,12 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
       WINDOW_COUNT: ${WINDOW_COUNT:-8}
+      # choose forecaster implementation: 'offline' (default) or 'online'
+      FORECASTER_MODE: ${FORECASTER_MODE:-offline}
       # Read from .env file mounted as /app/.env; do not set INFLUX_HOST and INFLUX_TOKEN here
       INFLUX_DATABASE: "sensor-data"
     volumes:
       - ./consumer_node/InfluxDB/.env:/app/.env:ro
+      - ./artifacts:/app/artifacts:ro
     networks:
       - default

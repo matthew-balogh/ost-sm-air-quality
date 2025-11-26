@@ -7,6 +7,7 @@ from threading import Lock, Thread, Event
 import joblib
 import numpy as np
 import pandas as pd
+import traceback
 from listeners.sliding_window_listener import SlidingWindowListener
 
 
@@ -23,14 +24,9 @@ class OfflineForecaster(SlidingWindowListener):
     _lock = Lock()
 
     TOPIC_TO_COLUMN = {
-        "co_gt": "CO(GT)",
         "pt08_s1_co": "PT08.S1(CO)",
-        "nmhc_gt": "NMHC(GT)",
-        "c6h6_gt": "C6H6(GT)",
         "pt08_s2_nmhc": "PT08.S2(NMHC)",
-        "nox_gt": "NOx(GT)",
         "pt08_s3_nox": "PT08.S3(NOx)",
-        "no2_gt": "NO2(GT)",
         "pt08_s4_no2": "PT08.S4(NO2)",
         "pt08_s5_o3": "PT08.S5(O3)",
         "t": "T",
@@ -38,9 +34,10 @@ class OfflineForecaster(SlidingWindowListener):
         "ah": "AH",
     }
 
-    def __new__(cls, *args, **kwargs):
-        # Accept arbitrary constructor args/kwargs so __new__ doesn't raise
-        # when new parameters (like lag_hours) are added to __init__.
+    # reverse map: column name -> topic key
+    COLUMN_TO_TOPIC = {v: k for k, v in TOPIC_TO_COLUMN.items()}
+
+    def __new__(cls, artifacts_dir=None, target=None, horizons=None, verb=False):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -48,53 +45,66 @@ class OfflineForecaster(SlidingWindowListener):
                     cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, artifacts_dir=None, target="NO2(GT)", horizons=None, verb=False,
-                 lag_hours=None, roll_windows=None,
-                 write_predictions=False, influx_table='predictions', influx_tags=None,
-                 influx_verbose=False, predict_all_topics=False):
-        if getattr(self, '_initialized', False):
+    def __init__(self, artifacts_dir=None, target=None, horizons=None, verb=False, lag_hours=None, roll_windows=None, required_samples=None, max_buffer_size=50):
+        """
+        required_samples: int or dict mapping target_name -> int. If int, applies to all targets.
+        If not provided, defaults to max(lag_hours)+1 behavior.
+        max_buffer_size: maximum deque length for each topic buffer.
+        """
+        already_init = getattr(self, '_initialized', False)
+        # allow updating configuration after first init without re-creating background thread
+        if already_init:
+            # update config values if provided
+            if verb is not None:
+                self.verb = verb
+            if target is not None:
+                self.target = target
+            if horizons is not None:
+                self.horizons = horizons
+            if lag_hours is not None:
+                self.lag_hours = tuple(lag_hours)
+            if roll_windows is not None:
+                self.roll_windows = tuple(roll_windows)
+            if required_samples is not None:
+                self.required_samples = required_samples
+            if max_buffer_size is not None:
+                self.max_buffer_size = max_buffer_size
             return
 
         super().__init__()
 
         self.verb = verb
+        # do NOT hard-code a default target; allow None and resolve later
         self.target = target
         self.horizons = horizons if horizons is not None else [1, 2, 3]
 
+        # feature configuration: lags and rolling window sizes
+        # default mirrors previous hard-coded behavior
+        self.lag_hours = tuple(lag_hours) if lag_hours is not None else (1, 2, 3, 6, 12, 24)
+        self.roll_windows = tuple(roll_windows) if roll_windows is not None else (3, 6, 12)
+
+        # required_samples: exact number of historical samples to use for feature creation
+        # can be an int (applies to all targets) or a dict mapping target_name -> int
+        self.required_samples = required_samples
+
         if artifacts_dir is None:
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            self.artifacts_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'artifacts')
+            # Go up one level from offline_forcasting/ to app/, then join with artifacts
+            self.artifacts_dir = os.path.join(os.path.dirname(current_dir), 'artifacts')
         else:
             self.artifacts_dir = artifacts_dir
 
         # buffers
         self.data_buffer = {}  # topic -> deque
         self.buffer_lock = Lock()
-        self.max_buffer_size = 50
+        self.max_buffer_size = max_buffer_size
 
-        # feature configuration (make configurable so users can reduce history requirement)
-        self.lag_hours = tuple(lag_hours) if lag_hours is not None else (1, 2, 3, 6, 12, 24)
-        self.roll_windows = tuple(roll_windows) if roll_windows is not None else (3, 6, 12)
-
-        # InfluxDB write options for predictions
-        self.write_predictions = write_predictions
-        self.influx_table = influx_table
-        self.influx_tags = influx_tags or {"topic": "no2_forecast"}
-        self.influx_verbose = influx_verbose
-        self._influx_writer = None
-
-        # If True, predict for all topics (uses predict_all()); otherwise
-        # legacy behaviour targets a single configured target (NO2 by default)
-        self.predict_all_topics = bool(predict_all_topics)
-
-        # models & report
-        # models: legacy single-target mapping kept for compatibility
+        # models & report (load all available targets)
+        # structure: self.models[target_str][H{h}] = model
         self.models = {}
-        # models_by_topic: map topic_key -> { 'H1': model, ... }
-        self.models_by_topic = {}
-        self.report = None
+        self.reports = {}
         self._load_models()
-        self._load_report()
+        self._load_reports()
 
         # prediction control
         self.prediction_interval = 10
@@ -108,70 +118,87 @@ class OfflineForecaster(SlidingWindowListener):
             print('OfflineForecaster initialized; models:', list(self.models.keys()))
 
     def _load_models(self):
-        # Load models for all known topics (if available). Models are expected
-        # to be named like `model_<target_safe>_H<h>_hgb.joblib` where
-        # <target_safe> corresponds to the column name in TOPIC_TO_COLUMN.
-        for topic_key, col_name in self.TOPIC_TO_COLUMN.items():
-            target_safe = col_name.replace('/', '-')
-            loaded = {}
-            for h in self.horizons:
-                model_path = os.path.join(self.artifacts_dir, f"model_{target_safe}_H{h}_hgb.joblib")
-                if os.path.exists(model_path):
-                    try:
-                        loaded[f"H{h}"] = joblib.load(model_path)
-                        if self.verb:
-                            print(f"Loaded model for {topic_key} H+{h} from {model_path}")
-                    except Exception as e:
-                        if self.verb:
-                            print(f"Error loading model {model_path}: {e}")
-                else:
-                    if self.verb:
-                        print(f"Model not found: {model_path}")
-            if loaded:
-                self.models_by_topic[topic_key] = loaded
-                # record feature names if available for debugging
-                info = {}
-                for k, m in loaded.items():
-                    try:
-                        fn = getattr(m, 'feature_names_in_', None)
-                        if fn is None and hasattr(m, 'named_steps') and hasattr(m.named_steps.get('model'), 'feature_names_in_'):
-                            fn = m.named_steps['model'].feature_names_in_
-                        info[k] = {'feature_names': list(fn) if fn is not None else None}
-                    except Exception:
-                        info[k] = {'feature_names': None}
-                setattr(self, 'models_info_' + topic_key, info)
+        # scan artifacts dir for model files and load them grouped by target
+        try:
+            files = os.listdir(self.artifacts_dir)
+        except Exception:
+            files = []
 
-        # keep legacy single-target mapping for backward compatibility
-        # determine target_topic from TOPIC_TO_COLUMN mapping
-        self.target_topic = None
-        for k, v in self.TOPIC_TO_COLUMN.items():
-            if v == self.target:
-                self.target_topic = k
-                break
-        if self.target_topic and self.target_topic in self.models_by_topic:
-            self.models = self.models_by_topic[self.target_topic]
+        # Workaround: some saved models contain numpy Generator state that
+        # references PCG64 (numpy.random._pcg64.PCG64). Older/newer numpy
+        # runtimes may not recognize that BitGenerator name when unpickling.
+        # Register PCG64 in numpy's pickle constructors if possible so
+        # joblib.load can reconstruct RNG state embedded in model objects.
+        try:
+            try:
+                # local imports to avoid hard dependency at module import time
+                from numpy.random._pcg64 import PCG64
+                import numpy.random._pickle as _npr_pickle
+                # key expected by numpy's unpickler is the class name 'PCG64'
+                _npr_pickle._bit_generator_constructors['PCG64'] = PCG64
+            except Exception:
+                # if private API differs or import fails, skip silently
+                pass
+        except Exception:
+            pass
 
-    def _load_report(self):
-        target_safe = self.target.replace('/', '-')
-        report_path = os.path.join(self.artifacts_dir, f"report_{target_safe}.json")
-        if os.path.exists(report_path):
+        if self.verb:
+            try:
+                print(f"Loading models from artifacts_dir={self.artifacts_dir}, total_files={len(files)}")
+            except Exception:
+                pass
+
+        import re
+        pattern = re.compile(r"^model_(.+)_H(\d+)_hgb\.joblib$")
+        for fn in files:
+            m = pattern.match(fn)
+            if not m:
+                continue
+            target_name = m.group(1)  # as in filename (parentheses etc retained)
+            h = int(m.group(2))
+            model_path = os.path.join(self.artifacts_dir, fn)
+            try:
+                mdl = joblib.load(model_path)
+                self.models.setdefault(target_name, {})[f"H{h}"] = mdl
+            except Exception as e:
+                print(f"Error loading model {model_path}: {e}")
+                if self.verb:
+                    import traceback as _tb
+                    _tb.print_exc()
+
+            # normalize model keys: if filenames used '-' instead of '/', allow both
+            # (no change to storage keys — they match filenames/column names)
+
+    def _load_reports(self):
+        # load any report_{target}.json files into self.reports[target]
+        try:
+            files = os.listdir(self.artifacts_dir)
+        except Exception:
+            files = []
+
+        import re
+        pattern = re.compile(r"^report_(.+)\.json$")
+        for fn in files:
+            m = pattern.match(fn)
+            if not m:
+                continue
+            target_name = m.group(1)
+            report_path = os.path.join(self.artifacts_dir, fn)
             try:
                 with open(report_path, 'r') as f:
-                    self.report = json.load(f)
+                    self.reports[target_name] = json.load(f)
                 if self.verb:
-                    print(f"Loaded report from {report_path}")
+                    print(f"Loaded report for {target_name} from {report_path}")
             except Exception as e:
                 if self.verb:
-                    print(f"Error loading report: {e}")
+                    print(f"Error loading report {report_path}: {e}")
 
     def _update_buffer(self, topic, value):
         """
         Update buffer with latest scalar reading for `topic`. If buffers have
         sufficient aligned history, call predict() (outside the lock).
         """
-        should_predict = False
-        required_min = max(self.lag_hours) + 1
-
+        # update buffer with the new sample (no auto-prediction here)
         with self.buffer_lock:
             if topic not in self.data_buffer:
                 self.data_buffer[topic] = deque(maxlen=self.max_buffer_size)
@@ -185,23 +212,9 @@ class OfflineForecaster(SlidingWindowListener):
                     processed_val = np.nan
 
             self.data_buffer[topic].append(processed_val)
-
-            # readiness check: require minimum length across any available buffers
-            lengths = [len(v) for v in self.data_buffer.values()] if self.data_buffer else []
-            if lengths and min(lengths) >= required_min:
-                should_predict = True
-
-        if should_predict:
-            try:
-                preds = self.predict()
-                if preds:
-                    if self.verb:
-                        print(f"[Auto-predict] {preds}")
-                    else:
-                        print(f"NO2(GT) Forecast: {preds}")
-            except Exception as e:
-                if self.verb:
-                    print(f"Error running auto-predict: {e}")
+            # Note: we no longer auto-predict here. Handlers (on_new_window_*)
+            # call predict() explicitly after updating the buffer. The periodic
+            # prediction loop will also run predictions for loaded targets.
 
     def _add_time_features(self, n_samples):
         """
@@ -218,65 +231,80 @@ class OfflineForecaster(SlidingWindowListener):
             'is_weekend': (timestamps.dayofweek >= 5).astype(int),
         }, index=timestamps)
 
-    def _extract_features(self, topic_key=None):
+    def _get_required_samples_for_target(self, target_name):
+        """Return exact required samples (int) for a target_name.
+        If `self.required_samples` is an int, return that.
+        If it's a dict, return value for target_name if present.
+        Otherwise default to max(self.lag_hours) + 1.
         """
-        Build feature vector for the latest timestamp. If `topic_key` is
-        provided, ensure the corresponding column is included; otherwise
-        build features across all known topics (missing topics -> NaN).
-        Returns the latest feature row as a 1-row DataFrame or None.
-        """
+        if self.required_samples is None:
+            return max(self.lag_hours) + 1
+        if isinstance(self.required_samples, int):
+            return int(self.required_samples)
+        if isinstance(self.required_samples, dict):
+            return int(self.required_samples.get(target_name, max(self.lag_hours) + 1))
+        # fallback
+        return max(self.lag_hours) + 1
+
+    def _extract_features(self, lag_hours=None, roll_windows=None, target=None):
+        # target: target column name like 'NO2(GT)' or similar. If not provided, use self.target
+        # lag_hours / roll_windows: optional overrides (tuples). If not provided, use instance config.
+        target_name = target if target is not None else self.target
+        # if still None, try to pick the first loaded model target as default
+        if target_name is None:
+            target_name = next(iter(self.models.keys()), None)
+            if target_name is None:
+                if self.verb:
+                    print('No target specified and no models loaded')
+                return None
+        target_topic = self.COLUMN_TO_TOPIC.get(target_name)
+        lag_hours = tuple(lag_hours) if lag_hours is not None else self.lag_hours
+        roll_windows = tuple(roll_windows) if roll_windows is not None else self.roll_windows
         with self.buffer_lock:
-            if not self.data_buffer:
+            required = self._get_required_samples_for_target(target_name)
+            # require that target's own buffer has at least `required` samples
+            if target_topic not in self.data_buffer or len(self.data_buffer[target_topic]) < required:
                 if self.verb:
-                    print('No buffers present to extract features')
+                    have = len(self.data_buffer.get(target_topic, []))
+                    print(f'Insufficient buffer for {target_topic or target_name}: {have}, need at least {required}')
                 return None
-            buffer_lengths = [len(v) for v in self.data_buffer.values()]
-            if not buffer_lengths or min(buffer_lengths) < max(self.lag_hours) + 1:
-                if self.verb:
-                    print(f'Insufficient buffer length: {min(buffer_lengths) if buffer_lengths else 0}, need at least {max(self.lag_hours) + 1}')
-                return None
-            min_length = min(buffer_lengths)
 
             data = {}
             for topic, col in self.TOPIC_TO_COLUMN.items():
-                if topic in self.data_buffer:
-                    values = list(self.data_buffer[topic])[-min_length:]
-                    data[col] = values
+                vals = list(self.data_buffer.get(topic, []))
+                if len(vals) >= required:
+                    values = vals[-required:]
                 else:
-                    data[col] = [np.nan] * min_length
+                    # left-pad with NaNs so all columns have length `required`
+                    pad = [np.nan] * (required - len(vals))
+                    values = pad + vals
+                data[col] = values
 
             # Create DataFrame with DatetimeIndex (hourly frequency going backwards from now)
             now = datetime.now()
-            timestamps = pd.date_range(end=now, periods=min_length, freq='h')
+            timestamps = pd.date_range(end=now, periods=required, freq='h')
             df = pd.DataFrame(data, index=timestamps)
-
-            # Determine the target column for the requested topic_key (if any)
-            if topic_key is not None:
-                target_col = self.TOPIC_TO_COLUMN.get(topic_key, None)
-            else:
-                # fallback to configured target (legacy)
-                target_col = self.target
-
-            if target_col is None or target_col not in df.columns:
+            target_col = self.TOPIC_TO_COLUMN.get(target_topic, target_name)
+            if target_col not in df.columns:
                 if self.verb:
                     print(f"Column {target_col} not found in data")
                 return None
 
             # Add time features
-            df_time = self._add_time_features(min_length)
+            df_time = self._add_time_features(required)
             df = pd.concat([df, df_time], axis=1)
 
             # Extract numeric columns (excluding time features)
             num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c not in ['hour', 'dow', 'month', 'is_weekend']]
-
+            
             # Collect all features in a dictionary to avoid fragmentation
             feature_dict = {}
-
+            
             # Create lag and rolling features (matching training notebook)
             for c in num_cols:
-                for L in self.lag_hours:
+                for L in lag_hours:
                     feature_dict[f"{c}_lag{L}"] = df[c].shift(L)
-                for W in self.roll_windows:
+                for W in roll_windows:
                     feature_dict[f"{c}_rollmean{W}"] = df[c].shift(1).rolling(W, min_periods=1).mean()
                     feature_dict[f"{c}_rollstd{W}"] = df[c].shift(1).rolling(W, min_periods=1).std()
 
@@ -285,7 +313,7 @@ class OfflineForecaster(SlidingWindowListener):
             feature_dict['dow'] = df_time['dow']
             feature_dict['month'] = df_time['month']
             feature_dict['is_weekend'] = df_time['is_weekend']
-
+            
             # Create DataFrame all at once to avoid fragmentation
             X = pd.DataFrame(feature_dict, index=df.index)
 
@@ -297,208 +325,108 @@ class OfflineForecaster(SlidingWindowListener):
                 print('No data after feature extraction')
             return None
 
-    def predict(self, horizon=None):
-        # If configured, predict for all topics and return a dict of topic->preds
-        if getattr(self, 'predict_all_topics', False):
-            return self.predict_all()
-
-        # default predict for configured target_topic (legacy behaviour)
-        topic = getattr(self, 'target_topic', None)
-        return self.predict_for_topic(topic, horizon=horizon)
-
-    def predict_for_topic(self, topic_key, horizon=None):
-        """
-        Predict for a specific topic_key (e.g., 'no2_gt'). Returns dict of
-        horizon predictions like {'H+1': value, ...} or None if not possible.
-        """
-        if topic_key is None:
-            if self.verb:
-                print('No target topic configured for prediction')
-            return None
-
-        if topic_key not in self.models_by_topic:
-            # No trained models for this topic: fall back to a simple persistence forecast
-            # (repeat last observed value) so we can still produce outputs for all topics.
-            if self.verb:
-                print(f'No trained models for topic {topic_key}; using persistence fallback')
-            with self.buffer_lock:
-                buf = self.data_buffer.get(topic_key, None)
-                if not buf:
-                    if self.verb:
-                        print(f'No buffer data for {topic_key}; cannot fallback')
-                    return None
-                # find last non-nan value
-                last_val = None
-                for v in reversed(buf):
-                    if v is not None and not (isinstance(v, float) and np.isnan(v)):
-                        last_val = v
-                        break
-                if last_val is None:
-                    if self.verb:
-                        print(f'Buffer contains only NaN for {topic_key}; cannot fallback')
-                    return None
-
-            preds = {}
-            horizons_to_predict = [horizon] if horizon is not None else self.horizons
-            for h in horizons_to_predict:
-                preds[f'H+{h}'] = float(last_val)
-
-            # write fallback predictions as well so downstream can consume them
-            self.last_predictions = preds
-            if self.write_predictions:
-                try:
-                    if self._influx_writer is None:
-                        # attempt to import writer as done elsewhere
-                        try:
-                            pkg = __import__('InfluxDB.InfluxDbUtilities', fromlist=['DatabaseWriter'])
-                            DatabaseWriter = getattr(pkg, 'DatabaseWriter')
-                            self._influx_writer = DatabaseWriter(verbose=self.influx_verbose)
-                        except Exception:
-                            self._influx_writer = None
-                    if self._influx_writer is not None:
-                        timestamp = datetime.now().strftime("%d/%m/%Y %H.%M.%S")
-                        try:
-                            self._influx_writer.write_prediction(topic_key, preds, timestamp)
-                        except Exception as e:
-                            if self.verb:
-                                print(f'Error writing fallback predictions for {topic_key}: {e}')
-                except Exception:
-                    if self.verb:
-                        print('Unexpected error while attempting to write fallback predictions')
-
-            return preds
-
-        features = self._extract_features(topic_key)
+    def predict(self, horizon=None, target=None):
+        # target: string matching loaded model keys (e.g. 'NO2(GT)', 'CO(GT)')
+        target_key = target if target is not None else self.target
+        if target_key is None:
+            target_key = next(iter(self.models.keys()), None)
+            if target_key is None:
+                if self.verb:
+                    print('No target specified and no models loaded to predict')
+                return None
+        features = self._extract_features(target=target_key)
         if features is None or len(features) == 0:
             if self.verb:
                 print('Insufficient data for prediction')
+            # keep previous predictions untouched
             return None
-
         preds = {}
         horizons_to_predict = [horizon] if horizon is not None else self.horizons
-        models = self.models_by_topic.get(topic_key, {})
+
+        models_for_target = self.models.get(target_key, {})
+
         for h in horizons_to_predict:
             key = f'H{h}'
-            if key in models:
-                model = models[key]
+            if key in models_for_target:
+                model = models_for_target[key]
                 try:
+                    # Handle sklearn Pipeline objects - feature_names_in_ is on the final estimator
+                    fn = None
                     if hasattr(model, 'feature_names_in_'):
                         fn = model.feature_names_in_
-                        Xord = features.reindex(columns=fn, fill_value=np.nan)
-                    elif hasattr(model, 'named_steps') and hasattr(model.named_steps.get('model'), 'feature_names_in_'):
-                        fn = model.named_steps['model'].feature_names_in_
+                    elif hasattr(model, 'named_steps'):
+                        # attempt to find a step that has feature_names_in_
+                        for step in model.named_steps.values():
+                            if hasattr(step, 'feature_names_in_'):
+                                fn = step.feature_names_in_
+                                break
+
+                    if fn is not None:
                         Xord = features.reindex(columns=fn, fill_value=np.nan)
                     else:
                         Xord = features
+
                     p = model.predict(Xord)[0]
                     preds[f'H+{h}'] = float(p)
                 except Exception as e:
                     if self.verb:
-                        print(f'Error predicting {topic_key} H+{h}: {e}')
+                        print(f'Error predicting {target_key} H+{h}: {e}')
+                        traceback.print_exc()
                     preds[f'H+{h}'] = None
             else:
                 preds[f'H+{h}'] = None
 
-        self.last_predictions = preds
-
-        # write per-topic prediction back to Influx via DatabaseWriter helper
-        if self.write_predictions:
-            try:
-                if self._influx_writer is None:
-                    # Try multiple import paths
-                    tried = []
-                    loaded = False
-                    for module_path in (
-                        'InfluxDB.InfluxDbUtilities',
-                        'consumer_node.InfluxDB.InfluxDbUtilities',
-                        '..InfluxDB.InfluxDbUtilities',
-                    ):
-                        try:
-                            pkg = __import__(module_path, fromlist=['DatabaseWriter'])
-                            DatabaseWriter = getattr(pkg, 'DatabaseWriter')
-                            self._influx_writer = DatabaseWriter(verbose=self.influx_verbose)
-                            loaded = True
-                            break
-                        except Exception as e:
-                            tried.append((module_path, str(e)))
-                    if not loaded:
-                        if self.verb:
-                            print('Could not import DatabaseWriter from any known path:')
-                            for p, e in tried:
-                                print(f'  {p}: {e}')
-                        self._influx_writer = None
-
-                if self._influx_writer is not None:
-                    timestamp = datetime.now().strftime("%d/%m/%Y %H.%M.%S")
-                    try:
-                        # use DatabaseWriter.write_prediction to write prefixed fields
-                        self._influx_writer.write_prediction(topic_key, preds, timestamp)
-                    except Exception as e:
-                        if self.verb:
-                            print(f'Error writing predictions to InfluxDB: {e}')
-            except Exception:
-                if self.verb:
-                    print('Unexpected error while attempting to write predictions')
-
+        # store per-target last predictions
+        if not hasattr(self, 'last_predictions') or self.last_predictions is None:
+            self.last_predictions = {}
+        self.last_predictions[target_key] = preds
         return preds
-
-    def predict_all(self):
-        """
-        Predict for all known topics (based on TOPIC_TO_COLUMN). Returns a
-        dictionary topic_key -> preds or None when prediction not possible.
-        This will call `predict_for_topic` for each topic so fallback
-        persistence predictions are also produced when trained models are
-        missing.
-        """
-        results = {}
-        for topic_key in list(self.TOPIC_TO_COLUMN.keys()):
-            try:
-                p = self.predict_for_topic(topic_key)
-                results[topic_key] = p
-            except Exception as e:
-                if self.verb:
-                    print(f'Error in predict_all for {topic_key}: {e}')
-                results[topic_key] = None
-        return results
-
-    def list_models(self):
-        """Return a dict of topics -> available horizons (models) or empty list."""
-        res = {}
-        for topic in self.TOPIC_TO_COLUMN.keys():
-            res[topic] = list(self.models_by_topic.get(topic, {}).keys())
-        return res
-
-    def run_diagnostics(self):
-        """Run a one-shot diagnostic: list models and attempt one prediction per topic."""
-        info = {
-            'models': self.list_models(),
-            'predictions': {}
-        }
-        for topic in self.TOPIC_TO_COLUMN.keys():
-            try:
-                p = self.predict_for_topic(topic)
-                info['predictions'][topic] = p
-            except Exception as e:
-                info['predictions'][topic] = {'error': str(e)}
-        if self.verb:
-            print('Diagnostics:', json.dumps(info, indent=2))
-        return info
 
     def _prediction_loop(self):
         while not self._stop_event.is_set():
             try:
-                # Periodically predict for all topics and print summary
-                all_preds = self.predict_all()
-                if all_preds:
-                    # Only print compact summary for non-verbose mode
-                    if not self.verb:
-                        print(f'[Periodic Prediction] { {k: v for k, v in all_preds.items() if v} }')
-                    else:
-                        print(f'[Periodic Prediction - all] {all_preds}')
+                # run predictions for all loaded targets
+                for target_key in list(self.models.keys()):
+                    try:
+                        preds = self.predict(target=target_key)
+                        if preds:
+                            print(f'OfflineForecaster: [Periodic] {target_key} -> {preds}')
+                    except Exception:
+                        if self.verb:
+                            print(f'Error predicting {target_key} in periodic loop')
             except Exception:
                 if self.verb:
                     print('Error in prediction loop')
             self._stop_event.wait(self.prediction_interval)
+
+        def inspect_models(self):
+            """Return summary of loaded models and any detected feature_names_in_.
+
+            Useful for debugging whether models were loaded and what feature names
+            they expect. Does not run predictions.
+            """
+            out = {}
+            for target, models in self.models.items():
+                out[target] = {}
+                for k, m in models.items():
+                    fn = None
+                    try:
+                        if hasattr(m, 'feature_names_in_'):
+                            fn = list(m.feature_names_in_)
+                        elif hasattr(m, 'named_steps'):
+                            for step in m.named_steps.values():
+                                if hasattr(step, 'feature_names_in_'):
+                                    fn = list(step.feature_names_in_)
+                                    break
+                    except Exception:
+                        fn = None
+                    out[target][k] = {'feature_names_in_': fn}
+            if self.verb:
+                try:
+                    print('inspect_models:', out)
+                except Exception:
+                    pass
+            return out
 
     def stop(self, join_timeout=2):
         self._stop_event.set()
@@ -512,24 +440,6 @@ class OfflineForecaster(SlidingWindowListener):
             pass
 
     # sliding-window callbacks: update buffer with latest value
-    def on_new_window_co_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('co_gt', latest['value'])
-        except Exception:
-            pass
-        try:
-            preds = self.predict_for_topic('co_gt') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('co_gt', 'co_gt')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
 
     def on_new_window_pt08_s1_co(self, data):
         if not data:
@@ -539,54 +449,10 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s1_co', latest['value'])
         except Exception:
             pass
-        try:
-            preds = self.predict_for_topic('pt08_s1_co') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('pt08_s1_co', 'pt08_s1_co')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
-
-    def on_new_window_nmhc_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('nmhc_gt', latest['value'])
-        except Exception:
-            pass
-        try:
-            preds = self.predict_for_topic('nmhc_gt') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('nmhc_gt', 'nmhc_gt')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
-
-    def on_new_window_c6h6_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('c6h6_gt', latest['value'])
-        except Exception:
-            pass
-        try:
-            preds = self.predict_for_topic('c6h6_gt') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('c6h6_gt', 'c6h6_gt')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s1_co']
+        preds = self.predict(target=target_name)
+        if preds:
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_pt08_s2_nmhc(self, data):
         if not data:
@@ -596,35 +462,10 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s2_nmhc', latest['value'])
         except Exception:
             pass
-        try:
-            preds = self.predict_for_topic('pt08_s2_nmhc') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('pt08_s2_nmhc', 'pt08_s2_nmhc')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
-
-    def on_new_window_nox_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('nox_gt', latest['value'])
-        except Exception:
-            pass
-        try:
-            preds = self.predict_for_topic('nox_gt') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('nox_gt', 'nox_gt')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s2_nmhc']
+        preds = self.predict(target=target_name)
+        if preds:
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_pt08_s3_nox(self, data):
         if not data:
@@ -634,36 +475,10 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s3_nox', latest['value'])
         except Exception:
             pass
-        try:
-            preds = self.predict_for_topic('pt08_s3_nox') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('pt08_s3_nox', 'pt08_s3_nox')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
-
-    def on_new_window_no2_gt(self, data):
-        if not data:
-            return
-        latest = data[-1]
-        try:
-            self._update_buffer('no2_gt', latest['value'])
-        except Exception:
-            pass
-
-        try:
-            preds = self.predict_for_topic('no2_gt') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('no2_gt', 'no2_gt')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s3_nox']
+        preds = self.predict(target=target_name)
+        if preds:
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_pt08_s4_no2(self, data):
         if not data:
@@ -673,16 +488,10 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s4_no2', latest['value'])
         except Exception:
             pass
-        try:
-            preds = self.predict_for_topic('pt08_s4_no2') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('pt08_s4_no2', 'pt08_s4_no2')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s4_no2']
+        preds = self.predict(target=target_name)
+        if preds:
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_pt08_s5_o3(self, data):
         if not data:
@@ -692,16 +501,10 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('pt08_s5_o3', latest['value'])
         except Exception:
             pass
-        try:
-            preds = self.predict_for_topic('pt08_s5_o3') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('pt08_s5_o3', 'pt08_s5_o3')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
+        target_name = self.TOPIC_TO_COLUMN['pt08_s5_o3']
+        preds = self.predict(target=target_name)
+        if preds:
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_t(self, data):
         if not data:
@@ -711,16 +514,10 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('t', latest['value'])
         except Exception:
             pass
-        try:
-            preds = self.predict_for_topic('t') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('t', 't')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
+        target_name = self.TOPIC_TO_COLUMN['t']
+        preds = self.predict(target=target_name)
+        if preds:
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_rh(self, data):
         if not data:
@@ -730,16 +527,10 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('rh', latest['value'])
         except Exception:
             pass
-        try:
-            preds = self.predict_for_topic('rh') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('rh', 'rh')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
+        target_name = self.TOPIC_TO_COLUMN['rh']
+        preds = self.predict(target=target_name)
+        if preds:
+            print(f"OfflineForecaster: {target_name} -> {preds}")
 
     def on_new_window_ah(self, data):
         if not data:
@@ -749,13 +540,7 @@ class OfflineForecaster(SlidingWindowListener):
             self._update_buffer('ah', latest['value'])
         except Exception:
             pass
-        try:
-            preds = self.predict_for_topic('ah') if not self.predict_all_topics else self.predict()
-            if preds:
-                col = self.TOPIC_TO_COLUMN.get('ah', 'ah')
-                if self.verb:
-                    print(f'Forecast for {col}:', preds)
-                else:
-                    print(f'{col} Forecast:', preds)
-        except Exception:
-            pass
+        target_name = self.TOPIC_TO_COLUMN['ah']
+        preds = self.predict(target=target_name)
+        if preds:
+            print(f"OfflineForecaster: {target_name} -> {preds}")

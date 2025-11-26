@@ -5,5 +5,7 @@ venv
 consumer_node/venv/
 consumer_node/venv
 
+artifacts
 AirQualityUCI.csv
 \outputs
+*.png
