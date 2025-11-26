@@ -84,7 +84,7 @@ if __name__ == "__main__":
     anomalyDetector = InWindowAnomalyDetector(dbWriter=databaseWriter, verb=True)
     reader.register_observer(anomalyDetector)
 
-    forecaster = OfflineForecaster(verb=True)
+    forecaster = OfflineForecaster(verb=True, dbWriter=databaseWriter)
     reader.register_observer(forecaster)
 
     reader.run()

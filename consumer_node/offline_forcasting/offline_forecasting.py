@@ -37,7 +37,7 @@ class OfflineForecaster(SlidingWindowListener):
     # reverse map: column name -> topic key
     COLUMN_TO_TOPIC = {v: k for k, v in TOPIC_TO_COLUMN.items()}
 
-    def __new__(cls, artifacts_dir=None, target=None, horizons=None, verb=False):
+    def __new__(cls, artifacts_dir=None, target=None, horizons=None, verb=False, lag_hours=None, roll_windows=None, required_samples=None, max_buffer_size=50, dbWriter=None):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -45,7 +45,8 @@ class OfflineForecaster(SlidingWindowListener):
                     cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, artifacts_dir=None, target=None, horizons=None, verb=False, lag_hours=None, roll_windows=None, required_samples=None, max_buffer_size=50):
+
+    def __init__(self, artifacts_dir=None, target=None, horizons=None, verb=False, lag_hours=None, roll_windows=None, required_samples=None, max_buffer_size=50, dbWriter=None):
         """
         required_samples: int or dict mapping target_name -> int. If int, applies to all targets.
         If not provided, defaults to max(lag_hours)+1 behavior.
@@ -69,6 +70,8 @@ class OfflineForecaster(SlidingWindowListener):
                 self.required_samples = required_samples
             if max_buffer_size is not None:
                 self.max_buffer_size = max_buffer_size
+            if dbWriter is not None: self.dbWriter = dbWriter;
+
             return
 
         super().__init__()
@@ -76,6 +79,8 @@ class OfflineForecaster(SlidingWindowListener):
         self.verb = verb
         # do NOT hard-code a default target; allow None and resolve later
         self.target = target
+        self.dbWriter = dbWriter;
+
         self.horizons = horizons if horizons is not None else [1, 2, 3]
 
         # feature configuration: lags and rolling window sizes
@@ -529,8 +534,11 @@ class OfflineForecaster(SlidingWindowListener):
             pass
         target_name = self.TOPIC_TO_COLUMN['rh']
         preds = self.predict(target=target_name)
+
+        
         if preds:
             print(f"OfflineForecaster: {target_name} -> {preds}")
+            self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_ah(self, data):
         if not data:

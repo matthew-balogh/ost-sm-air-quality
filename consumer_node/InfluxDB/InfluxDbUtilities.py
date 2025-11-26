@@ -122,6 +122,22 @@ class DatabaseWriter(SlidingWindowListener):
                         }, sample['key'])
 
 
+    def write_forecasting_data(self, topic, preds,key):
+        """
+        Write forecasting predictions into InfluxDB for the given topic.
+        `preds` is a dict like {'H+1': 12.3, 'H+2': 11.1}.
+        """
+        try:
+            if self.verbose:
+                print(f"write_forecasting_data: topic={topic}, preds={preds}, time={key}")
+            # self.write_prediction(topic, preds, measurement_time)
+            self.write_data("forecasting", {"topic": topic}, preds,key);
+        
+        except Exception as e:
+            if self.verbose:
+                print(f"Error writing forecasting data for {topic}: {e}")
+
+
 
     def on_new_window_pt08_s1_co(self, data):
         if self.verbose:
@@ -195,29 +211,73 @@ class DatabaseWriter(SlidingWindowListener):
     def on_new_window_nox_gt(self, data):
         pass
     
-            
-    def write_data(self,table_name,tags,fields,Measurement_time):
-        '''
-        Table_name : string.
-        tags: dict,
-        Fields: dict,
-        unixTime: Epoch time.
-        '''
-        unixTime = int(datetime.strptime(Measurement_time, "%d/%m/%Y %H.%M.%S").timestamp() * 1e9);
-        
-        
-        points = {
-            "measurement": table_name,
-            "tags": tags,
-            "fields": fields,
-            "time": unixTime
-            }
 
-        try:
-            self.client.write(points)
-        except Exception as e:
-            # log error for debugging
-            print(f"InfluxDB write error for measurement={table_name}, tags={tags}, time={Measurement_time}: {e}")
+
+    def write_data(self, table_name, tags, fields, Measurement_time):
+            '''
+            Table_name : string.
+            tags: dict,
+            Fields: dict,
+            Measurement_time: string in format "%d/%m/%Y %H.%M.%S"
+            '''
+            # from influxdb_client_3 import Point
+            
+            unixTime = int(datetime.strptime(Measurement_time, "%d/%m/%Y %H.%M.%S").timestamp() * 1e9);
+
+            print(f"Writing to InfluxDB: measurement={table_name}, tags={tags}, fields={fields}, time={Measurement_time} (unix: {unixTime})")
+
+            # Convert string numbers to floats and clean precision
+            cleaned_fields = {}
+            for key, val in fields.items():
+                if isinstance(val, str):
+                    try:
+                        cleaned_fields[key] = round(float(val), 10)
+                    except ValueError:
+                        # Keep as string if it's not a number
+                        cleaned_fields[key] = val
+                elif isinstance(val, (int, float)):
+                    # Force everything to float (not int) to avoid 'i' suffix
+                    cleaned_fields[key] = round(float(val), 10)
+                else:
+                    cleaned_fields[key] = val
+
+            print(f"DEBUG - Cleaned fields: {cleaned_fields}")
+            print(f"DEBUG - Field types: {[(k, type(v).__name__) for k, v in cleaned_fields.items()]}")
+
+            try:
+                # Use InfluxDB 3 Point API
+                point = Point(table_name)
+                
+                # Add tags
+                for key, value in tags.items():
+                    point = point.tag(key, str(value))
+                
+                # Add fields
+                for key, value in cleaned_fields.items():
+                    point = point.field(key, value)
+                
+                # Add timestamp
+                point = point.time(unixTime)
+                
+                # Debug: print the line protocol
+                try:
+                    line_protocol = point.to_line_protocol()
+                    print(f"DEBUG - Line protocol: {line_protocol}")
+                except Exception as lp_error:
+                    print(f"DEBUG - Could not generate line protocol: {lp_error}")
+                
+                self.client.write(database=self.database, record=point)
+            
+            except Exception as e:
+                print(f"InfluxDB write failed: {e}")
+                print(f"Point data: measurement={table_name}, tags={tags}, fields={cleaned_fields}, time={unixTime}")
+                raise
+
+    
+
+
+
+
 
     def write_prediction(self, topic, preds, Measurement_time):
         """
@@ -245,6 +305,9 @@ class DatabaseWriter(SlidingWindowListener):
         except Exception as e:
             if self.verbose:
                 print(f"Error writing prediction for {topic}: {e}")
+
+
+
 
 
     def _write_value_and_predictions(self, topic, last_item):
