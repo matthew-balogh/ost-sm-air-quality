@@ -28,6 +28,19 @@ def retry(self, data: str, exception: InfluxDBError):
     print(f"Failed retry writing batch: config: {self}, data: {data} retry: {exception}")
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 class DatabaseWriter(SlidingWindowListener):
 
     def __init__(self,verbose = False):
@@ -110,7 +123,7 @@ class DatabaseWriter(SlidingWindowListener):
     
 
 
-    def write_trend(self, sample, type, topic):
+    def write_trend(self, sample, type, topic,S_value):
         '''
         data should have the same structure as other stream data + trend type + topic name (e.g: co_gt,...).
 
@@ -118,6 +131,7 @@ class DatabaseWriter(SlidingWindowListener):
         self.write_data("trend", {"topic": topic},
                         {
                             "value": sample['value'],
+                            "S": S_value,
                             "type": type,
                         }, sample['key'])
     
