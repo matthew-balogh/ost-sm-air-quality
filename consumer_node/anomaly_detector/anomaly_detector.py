@@ -1,100 +1,29 @@
 import numpy as np
-import global_statistics.IQR as IQR
 
-from abc import ABC, abstractmethod
-from listeners.sliding_window_listener import SlidingWindowListener
 from global_statistics.StreamStatistics import SimpleTDigest
+
+from listeners.sliding_window_listener import SlidingWindowListener
 from InfluxDB.InfluxDbUtilities import DatabaseWriter
 
+from anomaly_detector.novelty_function import derivateNoveltyFn
+from anomaly_detector.outlier_estimator import MissingValueDetector, WindowOutlierDetector, TDigestOutlierDetector
 
-class PeakPickingStrategy(ABC):
-    @abstractmethod
-    def predict(self, novelty_score, novelty_fn): pass
-
-    @abstractmethod
-    def update(self, x): pass
-    
-class TDigestOutlierStrategy(PeakPickingStrategy):
-    def __init__(self, delta=.1, iqr_fence=1.5):
-        super().__init__()
-        self.delta = delta
-        self.iqr_fence = iqr_fence
-        self.algorithm_ = SimpleTDigest(delta)
-
-    def predict(self, novelty_score, novelty_fn):
-        q1, q3 = self.algorithm_.percentile(25), self.algorithm_.percentile(75)
-        if (q1 is not None) and (q3 is not None):
-            iqr = (q3 - q1)
-            is_anomalous = (novelty_score > (q3 + self.iqr_fence * iqr))
-        else: is_anomalous = False
-
-        return {
-            "pred": is_anomalous,
-            "type": "global",
-            "message": "Outlier based on the global opinion (T-digest)."
-        }
-    
-    def update(self, x):
-        return self.algorithm_.update(x)
-
-class WindowOutlierStrategy(PeakPickingStrategy):
-    def __init__(self, iqr_fence=1.5):
-        super().__init__()
-        self.iqr_fence = iqr_fence
-
-    def predict(self, novelty_score, novelty_fn):
-        iqr, q1, q3 = IQR.calc(novelty_fn)
-        is_anomalous = (novelty_score > (q3 + self.iqr_fence * iqr))
-
-        return {
-            "pred": is_anomalous,
-            "type": "local",
-            "message": "Outlier based on the local opinion (within the window)."
-        }
-    
-    def update(self, x):
-        pass
-
-class MissingValueStrategy(PeakPickingStrategy):
-    def __init__(self):
-        super().__init__()
-
-    def predict(self, novelty_score, novelty_fn):
-        is_anomalous = np.isnan(novelty_score)
-
-        return {
-            "pred": is_anomalous,
-            "type": "missing",
-            "message": "Value / novelty score is missing."
-        }
-
-    def update(self, x):
-        pass
-    
-def derivateNoveltyFn(input):
-    if np.all(np.isnan(input)):
-        return np.full_like(input, np.nan)
-    
-    median = np.nanmedian(input)
-    nan_mask = np.isnan(input)
-
-    _input = np.where(nan_mask, median, input)
-    diff = np.diff(_input, prepend=input[0])
-    diff[nan_mask] = np.nan
-    diff[diff < 0] = 0
-    return diff
 
 class InWindowAnomalyDetector(SlidingWindowListener):
     def __init__(self,
                  dbWriter:DatabaseWriter,
-                 strategies:list[PeakPickingStrategy]=[WindowOutlierStrategy(), TDigestOutlierStrategy(), MissingValueStrategy()],
                  novelty_fn=derivateNoveltyFn,
+                 estimators:dict={
+                    "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1), upper_only=True),
+                    "local": WindowOutlierDetector(upper_only=True),
+                    "missing":  MissingValueDetector(),
+                 },
                  verb=False):
         super().__init__()
 
         self.dbWriter = dbWriter
-        self.strategies = strategies
         self.novelty_fn = novelty_fn
+        self.estimators = estimators
         self.verb = verb
 
         self.observers = []
@@ -104,98 +33,107 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             print("InWindowAnomalyDetector started")
             print("-------------------------------")
 
-    # TODO: replicate to other methods / merge methods
-    def on_new_window_co_gt(self, data):
-        obs_index = -1
-        topic = data[obs_index]["topic"]
+    def detect(self, data):
+        if (len(data) < 2):
+            print("Minimum 2 data points are required for anomaly detector. Skipping detection.")
+            return
 
+        x = data[-1]
+        topic = x["topic"]
 
         if self.verb:
             print(f"Detecting anomalies in Topic (\"{topic}\") within a window with length={len(data)}).")
             print(f"Window elements: " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-            print(f"Predicting whether [{data[obs_index]['key']} with value of {data[obs_index]['value']}] is anomalous.")
+            print(f"Predicting whether [{x['key']} with value of {x['value']}] is anomalous.")
 
-
+        # ensure data format
         values = np.array([float(item["value"]) for item in data], dtype=float)
-        values = np.where(values == -200, np.nan, values) # TODO: move upstream
+        values = np.where(values == -200, np.nan, values) # TODO: move upstream?
+
+        # novelty function
         novelty_scores = self.novelty_fn(values)
-        nov_score = novelty_scores[obs_index]
 
-        predictions = []
+        # predictions
+        predictions = {}
 
-        for s in self.strategies:
-            pred = s.predict(nov_score, novelty_scores)
-            predictions.append(pred)
-            s.update(nov_score)
+        for (est_key, estimator) in self.estimators.items():
+            X_train = novelty_scores[:-1]
+            x_test = novelty_scores[-1]
 
-        is_anomalous = any(p["pred"] for p in predictions)
+            if hasattr(estimator, "update"):
+                y_hat = estimator.predict(x_test)
+                estimator.update(x_test)
+            else:
+                y_hat = estimator.fit(X_train) \
+                    .predict(x_test)
+            
+            if y_hat:
+                predictions[est_key] = 1
+
+            # s.update(nov_score) !
+
+        is_anomalous = any(predictions.values())
 
         if (is_anomalous):
-            types = [p["type"] for p in predictions if p["pred"]]
-            reasons = [p["message"] for p in predictions if p["pred"]]
+            estimator_keys = [key for key, val in predictions.items() if val == 1]
 
-            print("")
-            print("\t" + "-"*50)
-            print(f"\t Observation [{data[obs_index]['key']} with novelty score of {nov_score}] is anomalous.")
-            print(f"\n\t\t Reason(s):")
-            for t, r in zip(types, reasons):
-                print(f"\t\t * TYPE: {t}\t| {r}")
-            print("\n\n\t Window:")
-            print("\n\t Values:\t\t", values)
-            print("\n\t Novelty scores:\t", novelty_scores)
-            print("\n\t" + "-"*50)
-            print("")
-            print("")
+            if self.verb:
+                self.print_detected(values, novelty_scores, x['key'], x_test, estimator_keys)
 
             # store in db
-            self.dbWriter.write_anomaly(data[obs_index], types=types, topic=topic)
+            self.dbWriter.write_anomaly(x, types=estimator_keys, topic=topic)
 
-        return is_anomalous, predictions
+
+    # detect anomalies in sensor data
 
     def on_new_window_pt08_s1_co(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-    def on_new_window_nmhc_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-    def on_new_window_c6h6_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_pt08_s2_nmhc(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-    def on_new_window_nox_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_pt08_s3_nox(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-
-    def on_new_window_no2_gt(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_pt08_s4_no2(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_pt08_s5_o3(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_t(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_ah(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
 
     def on_new_window_rh(self, data):
-        if self.verb:
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        self.detect(data)
+    
+    # skip anomaly detection on reference data
+    
+    def on_new_window_co_gt(self, data):
+        pass
+
+    def on_new_window_nmhc_gt(self, data):
+        pass
+
+    def on_new_window_c6h6_gt(self, data):
+        pass
+
+    def on_new_window_nox_gt(self, data):
+        pass
+
+    def on_new_window_no2_gt(self, data):
+        pass
+
+    def print_detected(self, values, novelty_scores, x_key, x_nov_score, estimator_keys):
+        print("")
+        print("\t" + "-"*50)
+        print(f"\t Observation [{x_key} with novelty score of {x_nov_score}] is anomalous by estimator(s) {estimator_keys}.")
+        print("\n\n\t Window:")
+        print("\n\t Values:\t\t", values)
+        print("\n\t Novelty scores:\t", novelty_scores)
+        print("\n\t" + "-"*50)
+        print("")
+        print("")
