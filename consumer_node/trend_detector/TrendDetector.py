@@ -1,6 +1,6 @@
 import math
 from scipy.stats import norm
-from global_statistics.StreamStatistics import SimpleTDigest, MovingStatistics
+from global_statistics.StreamStatistics import SimpleTDigest, MovingStatistics, LossyCounting
 
 
 class MKTrendDetector:
@@ -13,6 +13,7 @@ class MKTrendDetector:
         self.S = 0;
         self.Z = 0;
         self.P = 0;
+        self.count_approx =  LossyCounting(epsilon=0.01);
         self.min_samples = len(self.quantile_probs);
     
 
@@ -39,7 +40,7 @@ class MKTrendDetector:
         ## Extreme cases
         if x <= self.quantile_values[0]:
             return 0.0
-        if x >= self.quantile_probs[-1]:
+        if x >= self.quantile_values[-1]:
             return 1.0
         
         for i in range(len(self.quantile_values)-1):
@@ -60,7 +61,8 @@ class MKTrendDetector:
         Update the online MK statistic with a new value x
         """
         # Step 1: update quantiles (may use small history initially)
-        self.calculate_quantiles_tdigest(x)
+        self.calculate_quantiles_tdigest(x);
+        self.count_approx.process_item(x);
         
         # Step 2: compute new St by adding the sample contribution to St-1
         if self.length <= self.min_samples:
@@ -76,14 +78,20 @@ class MKTrendDetector:
         
     def compute_variance_Z(self):
         # Let's assume no ties.
-        varS = self.length * (self.length-1) * (2*self.length + 5) / 18
+        if self.count_approx is not None:
+            ties = self.count_approx.estimated_counts();
+            print("============= Ties ===============", ties); 
+        tie_groups = [tj for tj  in ties.values() if tj > 1];
+        print("============= Tie groups ===============", tie_groups);
+        varS = (self.length*(self.length-1)*(2*self.length+5)
+            - sum(tj*(tj-1)*(2*tj+5) for tj in tie_groups)) / 18
+
         if self.S > 0:
             self.Z = (self.S - 1) / math.sqrt(varS)
         elif self.S < 0:
             self.Z = (self.S + 1) / math.sqrt(varS)
         else:
-            self.Z = 0.0;
-
+            self.Z = 0.0
 
 
 
@@ -114,21 +122,21 @@ class InWindowMKTrendDetector:
 
 
         self.dbWriter = dbWriter;
-        self.co_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
-        self.co_gt_trend_detector = MKTrendDetector(self.co_gt_trend_detector_t_digest, quantile_step);
-        self.co_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
+        # self.co_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
+        # self.co_gt_trend_detector = MKTrendDetector(self.co_gt_trend_detector_t_digest, quantile_step);
+        # self.co_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
         
         self.pt08_s1_co_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
         self.pt08_s1_co_trend_detector = MKTrendDetector(self.pt08_s1_co_trend_detector_t_digest,   quantile_step);
         self.pt08_s1_co_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
 
-        self.nmhc_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
-        self.nmhc_gt_trend_detector = MKTrendDetector(self.nmhc_gt_trend_detector_t_digest, quantile_step);
-        self.nmhc_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
+        # self.nmhc_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
+        # self.nmhc_gt_trend_detector = MKTrendDetector(self.nmhc_gt_trend_detector_t_digest, quantile_step);
+        # self.nmhc_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
 
-        self.c6h6_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
-        self.c6h6_gt_trend_detector = MKTrendDetector(self.c6h6_gt_trend_detector_t_digest, quantile_step);
-        self.c6h6_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
+        # self.c6h6_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
+        # self.c6h6_gt_trend_detector = MKTrendDetector(self.c6h6_gt_trend_detector_t_digest, quantile_step);
+        # self.c6h6_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
 
         self.pt08_s2_nmhc_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
         self.pt08_s2_nmhc_trend_detector = MKTrendDetector(self.pt08_s2_nmhc_trend_detector_t_digest, quantile_step);
@@ -136,17 +144,17 @@ class InWindowMKTrendDetector:
 
 
 
-        self.nox_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
-        self.nox_gt_trend_detector = MKTrendDetector(self.nox_gt_trend_detector_t_digest, quantile_step);
-        self.nox_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
+        # self.nox_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
+        # self.nox_gt_trend_detector = MKTrendDetector(self.nox_gt_trend_detector_t_digest, quantile_step);
+        # self.nox_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
 
         self.pt08_s3_nox_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
         self.pt08_s3_nox_trend_detector = MKTrendDetector(self.pt08_s3_nox_trend_detector_t_digest, quantile_step);   
         self.pt08_s3_nox_moving_stats = MovingStatistics(method="exponential", alpha=0.1); 
 
-        self.no2_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
-        self.no2_gt_trend_detector = MKTrendDetector(self.no2_gt_trend_detector_t_digest, quantile_step);
-        self.no2_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
+        # self.no2_gt_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
+        # self.no2_gt_trend_detector = MKTrendDetector(self.no2_gt_trend_detector_t_digest, quantile_step);
+        # self.no2_gt_moving_stats = MovingStatistics(method="exponential", alpha=0.1);
 
         self.pt08_s4_no2_trend_detector_t_digest = SimpleTDigest(t_digest_compression_delta);
         self.pt08_s4_no2_trend_detector = MKTrendDetector(self.pt08_s4_no2_trend_detector_t_digest, quantile_step);
@@ -172,51 +180,51 @@ class InWindowMKTrendDetector:
     
     
     
-    def on_new_window_co_gt(self, data):
+    # def on_new_window_co_gt(self, data):
 
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
+    #     if self.verbose:
+    #         print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
 
-        last_item = data[-1];
+    #     last_item = data[-1];
 
-        if last_item['value'] != -200:                
+    #     if last_item['value'] != -200:                
             
-            self.co_gt_trend_detector.update(float(last_item['value']));
+    #         self.co_gt_trend_detector.update(float(last_item['value']));
             
-            self.co_gt_trend_detector.compute_variance_Z();
+    #         self.co_gt_trend_detector.compute_variance_Z();
 
-            self.co_gt_moving_stats.UpdateAll(float(last_item['value']));
+    #         self.co_gt_moving_stats.UpdateAll(float(last_item['value']));
 
-            mean = self.co_gt_moving_stats.mean;
-            variance = self.co_gt_moving_stats.variance;
+    #         mean = self.co_gt_moving_stats.mean;
+    #         variance = self.co_gt_moving_stats.variance;
             
-            if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
-                print("Writing moving stats for CO_GT: mean =", mean, ", variance =", variance);
-                self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
+    #         if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
+    #             print("Writing moving stats for CO_GT: mean =", mean, ", variance =", variance);
+    #             self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
             
-            min = self.co_gt_trend_detector.t_digest.percentile(0);
-            q1 = self.co_gt_trend_detector.t_digest.percentile(25);
-            median = self.co_gt_trend_detector.t_digest.percentile(50);
-            q3 = self.co_gt_trend_detector.t_digest.percentile(75);
-            max = self.co_gt_trend_detector.t_digest.percentile(100);
+    #         min = self.co_gt_trend_detector.t_digest.percentile(0);
+    #         q1 = self.co_gt_trend_detector.t_digest.percentile(25);
+    #         median = self.co_gt_trend_detector.t_digest.percentile(50);
+    #         q3 = self.co_gt_trend_detector.t_digest.percentile(75);
+    #         max = self.co_gt_trend_detector.t_digest.percentile(100);
             
-            quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
-            if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
-                self.dbWriter.write_quantiles({"min":min, "q1":q1, "median":median, "q3":q3, "max":max}, last_item['topic'], last_item['key']);
-            else:
-                print("Skipping write due to NULL quantile")
+    #         quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
+    #         if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
+    #             self.dbWriter.write_quantiles({"min":min, "q1":q1, "median":median, "q3":q3, "max":max}, last_item['topic'], last_item['key']);
+    #         else:
+    #             print("Skipping write due to NULL quantile")
 
-            trend = self.co_gt_trend_detector.trend();
+    #         trend = self.co_gt_trend_detector.trend();
 
-            if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
-            elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
-            elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+    #         if trend == "Significant increasing trend":
+    #             self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+    #         elif trend == "Significant decreasing trend":
+    #             self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+    #         elif trend == "No significant trend":
+    #             self.dbWriter.write_trend(last_item, 0, last_item['topic']);
                 
-            if self.verbose:
-                print(" + + + + + Current trend  + + + + + ", trend);
+    #         if self.verbose:
+    #             print(" + + + + + Current trend  + + + + + ", trend);
 
 
     def on_new_window_pt08_s1_co(self, data):
@@ -252,100 +260,101 @@ class InWindowMKTrendDetector:
             trend = self.pt08_s1_co_trend_detector.trend();
 
             if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 1, last_item['topic'],self.pt08_s1_co_trend_detector.S);
             elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, -1, last_item['topic'],self.pt08_s1_co_trend_detector.S);
             elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 0, last_item['topic'],self.pt08_s1_co_trend_detector.S);
+            
 
             if self.verbose:
                 print(" + + + + + Current trend  + + + + + ", trend);
 
 
-    def on_new_window_nmhc_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
+    # def on_new_window_nmhc_gt(self, data):
+    #     if self.verbose:
+    #         print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
 
-        last_item = data[-1];
+    #     last_item = data[-1];
 
-        if last_item['value'] != -200:
-            self.nmhc_gt_trend_detector.update(float(last_item['value']));
-            self.nmhc_gt_trend_detector.compute_variance_Z();
-            self.nmhc_gt_moving_stats.UpdateAll(float(last_item['value']));
+    #     if last_item['value'] != -200:
+    #         self.nmhc_gt_trend_detector.update(float(last_item['value']));
+    #         self.nmhc_gt_trend_detector.compute_variance_Z();
+    #         self.nmhc_gt_moving_stats.UpdateAll(float(last_item['value']));
 
-            mean = self.nmhc_gt_moving_stats.mean;
-            variance = self.nmhc_gt_moving_stats.variance;
+    #         mean = self.nmhc_gt_moving_stats.mean;
+    #         variance = self.nmhc_gt_moving_stats.variance;
 
-            if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
-                print("Writing moving stats for NMHC_GT: mean =", mean, ", variance =", variance);
-                self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
+    #         if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
+    #             print("Writing moving stats for NMHC_GT: mean =", mean, ", variance =", variance);
+    #             self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
 
-            min = self.nmhc_gt_trend_detector.t_digest.percentile(0);
-            q1 = self.nmhc_gt_trend_detector.t_digest.percentile(25);
-            median = self.nmhc_gt_trend_detector.t_digest.percentile(50);
-            q3 = self.nmhc_gt_trend_detector.t_digest.percentile(75);
-            max = self.nmhc_gt_trend_detector.t_digest.percentile(100);
+    #         min = self.nmhc_gt_trend_detector.t_digest.percentile(0);
+    #         q1 = self.nmhc_gt_trend_detector.t_digest.percentile(25);
+    #         median = self.nmhc_gt_trend_detector.t_digest.percentile(50);
+    #         q3 = self.nmhc_gt_trend_detector.t_digest.percentile(75);
+    #         max = self.nmhc_gt_trend_detector.t_digest.percentile(100);
 
-            quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
-            if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
-                self.dbWriter.write_quantiles(quantiles, last_item['topic'], last_item['key']);
-            else:
-                print("Skipping write due to NULL quantile")
+    #         quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
+    #         if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
+    #             self.dbWriter.write_quantiles(quantiles, last_item['topic'], last_item['key']);
+    #         else:
+    #             print("Skipping write due to NULL quantile")
 
-            trend = self.nmhc_gt_trend_detector.trend();
+    #         trend = self.nmhc_gt_trend_detector.trend();
 
-            if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
-            elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
-            elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+    #         if trend == "Significant increasing trend":
+    #             self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+    #         elif trend == "Significant decreasing trend":
+    #             self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+    #         elif trend == "No significant trend":
+    #             self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
-            if self.verbose:
-                print(" + + + + + Current trend  + + + + + ", trend);
+    #         if self.verbose:
+    #             print(" + + + + + Current trend  + + + + + ", trend);
 
 
-    def on_new_window_c6h6_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
+    # def on_new_window_c6h6_gt(self, data):
+    #     if self.verbose:
+    #         print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
 
-        last_item = data[-1];
+    #     last_item = data[-1];
 
-        if last_item['value'] != -200:
-            self.c6h6_gt_trend_detector.update(float(last_item['value']));
-            self.c6h6_gt_trend_detector.compute_variance_Z();
-            self.c6h6_gt_moving_stats.UpdateAll(float(last_item['value']));
+    #     if last_item['value'] != -200:
+    #         self.c6h6_gt_trend_detector.update(float(last_item['value']));
+    #         self.c6h6_gt_trend_detector.compute_variance_Z();
+    #         self.c6h6_gt_moving_stats.UpdateAll(float(last_item['value']));
 
-            mean = self.c6h6_gt_moving_stats.mean;
-            variance = self.c6h6_gt_moving_stats.variance;
+    #         mean = self.c6h6_gt_moving_stats.mean;
+    #         variance = self.c6h6_gt_moving_stats.variance;
 
-            if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
-                print("Writing moving stats for C6H6_GT: mean =", mean, ", variance =", variance);
-                self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
+    #         if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
+    #             print("Writing moving stats for C6H6_GT: mean =", mean, ", variance =", variance);
+    #             self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
 
-            min = self.c6h6_gt_trend_detector.t_digest.percentile(0);
-            q1 = self.c6h6_gt_trend_detector.t_digest.percentile(25);
-            median = self.c6h6_gt_trend_detector.t_digest.percentile(50);
-            q3 = self.c6h6_gt_trend_detector.t_digest.percentile(75);
-            max = self.c6h6_gt_trend_detector.t_digest.percentile(100);
+    #         min = self.c6h6_gt_trend_detector.t_digest.percentile(0);
+    #         q1 = self.c6h6_gt_trend_detector.t_digest.percentile(25);
+    #         median = self.c6h6_gt_trend_detector.t_digest.percentile(50);
+    #         q3 = self.c6h6_gt_trend_detector.t_digest.percentile(75);
+    #         max = self.c6h6_gt_trend_detector.t_digest.percentile(100);
 
-            quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
-            if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
-                self.dbWriter.write_quantiles(quantiles, last_item['topic'], last_item['key']);
-            else:
-                print("Skipping write due to NULL quantile")
+    #         quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
+    #         if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
+    #             self.dbWriter.write_quantiles(quantiles, last_item['topic'], last_item['key']);
+    #         else:
+    #             print("Skipping write due to NULL quantile")
 
-            trend = self.c6h6_gt_trend_detector.trend();
+    #         trend = self.c6h6_gt_trend_detector.trend();
 
-            if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
-            elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
-            elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+    #         if trend == "Significant increasing trend":
+    #             self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+    #         elif trend == "Significant decreasing trend":
+    #             self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+    #         elif trend == "No significant trend":
+    #             self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
-            if self.verbose:
-                print(" + + + + + Current trend  + + + + + ", trend);
+    #         if self.verbose:
+    #             print(" + + + + + Current trend  + + + + + ", trend);
 
 
     def on_new_window_pt08_s2_nmhc(self, data):
@@ -381,57 +390,57 @@ class InWindowMKTrendDetector:
             trend = self.pt08_s2_nmhc_trend_detector.trend();
 
             if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.pt08_s2_nmhc_trend_detector.S);
             elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.pt08_s2_nmhc_trend_detector.S);
             elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.pt08_s2_nmhc_trend_detector.S);
 
             if self.verbose:
                 print(" + + + + + Current trend  + + + + + ", trend);
 
 
-    def on_new_window_nox_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
+    # def on_new_window_nox_gt(self, data):
+    #     if self.verbose:
+    #         print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
 
-        last_item = data[-1];
+    #     last_item = data[-1];
 
-        if last_item['value'] != -200:
-            self.nox_gt_trend_detector.update(float(last_item['value']));
-            self.nox_gt_trend_detector.compute_variance_Z();
-            self.nox_gt_moving_stats.UpdateAll(float(last_item['value']));
+    #     if last_item['value'] != -200:
+    #         self.nox_gt_trend_detector.update(float(last_item['value']));
+    #         self.nox_gt_trend_detector.compute_variance_Z();
+    #         self.nox_gt_moving_stats.UpdateAll(float(last_item['value']));
 
-            mean = self.nox_gt_moving_stats.mean;
-            variance = self.nox_gt_moving_stats.variance;
+    #         mean = self.nox_gt_moving_stats.mean;
+    #         variance = self.nox_gt_moving_stats.variance;
 
-            if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
-                print("Writing moving stats for NOX_GT: mean =", mean, ", variance =", variance);
-                self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
+    #         if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
+    #             print("Writing moving stats for NOX_GT: mean =", mean, ", variance =", variance);
+    #             self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
 
-            min = self.nox_gt_trend_detector.t_digest.percentile(0);
-            q1 = self.nox_gt_trend_detector.t_digest.percentile(25);
-            median = self.nox_gt_trend_detector.t_digest.percentile(50);
-            q3 = self.nox_gt_trend_detector.t_digest.percentile(75);
-            max = self.nox_gt_trend_detector.t_digest.percentile(100);
+    #         min = self.nox_gt_trend_detector.t_digest.percentile(0);
+    #         q1 = self.nox_gt_trend_detector.t_digest.percentile(25);
+    #         median = self.nox_gt_trend_detector.t_digest.percentile(50);
+    #         q3 = self.nox_gt_trend_detector.t_digest.percentile(75);
+    #         max = self.nox_gt_trend_detector.t_digest.percentile(100);
 
-            quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
-            if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
-                self.dbWriter.write_quantiles(quantiles, last_item['topic'], last_item['key']);
-            else:
-                print("Skipping write due to NULL quantile")
+    #         quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
+    #         if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
+    #             self.dbWriter.write_quantiles(quantiles, last_item['topic'], last_item['key']);
+    #         else:
+    #             print("Skipping write due to NULL quantile")
 
-            trend = self.nox_gt_trend_detector.trend();
+    #         trend = self.nox_gt_trend_detector.trend();
 
-            if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
-            elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
-            elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+    #         if trend == "Significant increasing trend":
+    #             self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+    #         elif trend == "Significant decreasing trend":
+    #             self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+    #         elif trend == "No significant trend":
+    #             self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
-            if self.verbose:
-                print(" + + + + + Current trend  + + + + + ", trend);
+    #         if self.verbose:
+    #             print(" + + + + + Current trend  + + + + + ", trend);
 
 
     def on_new_window_pt08_s3_nox(self, data):
@@ -467,57 +476,57 @@ class InWindowMKTrendDetector:
             trend = self.pt08_s3_nox_trend_detector.trend();
 
             if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.pt08_s3_nox_trend_detector.S);
             elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.pt08_s3_nox_trend_detector.S);
             elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.pt08_s3_nox_trend_detector.S);
 
             if self.verbose:
                 print(" + + + + + Current trend  + + + + + ", trend);
 
 
-    def on_new_window_no2_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
+    # def on_new_window_no2_gt(self, data):
+    #     if self.verbose:
+    #         print("++++++++++++++++++++++++++++++++++++++ TREND detector +++++++++++++++++++++++++++++++++");
 
-        last_item = data[-1];
+    #     last_item = data[-1];
 
-        if last_item['value'] != -200:
-            self.no2_gt_trend_detector.update(float(last_item['value']));
-            self.no2_gt_trend_detector.compute_variance_Z();
-            self.no2_gt_moving_stats.UpdateAll(float(last_item['value']));
+    #     if last_item['value'] != -200:
+    #         self.no2_gt_trend_detector.update(float(last_item['value']));
+    #         self.no2_gt_trend_detector.compute_variance_Z();
+    #         self.no2_gt_moving_stats.UpdateAll(float(last_item['value']));
 
-            mean = self.no2_gt_moving_stats.mean;
-            variance = self.no2_gt_moving_stats.variance;
+    #         mean = self.no2_gt_moving_stats.mean;
+    #         variance = self.no2_gt_moving_stats.variance;
 
-            if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
-                print("Writing moving stats for NO2_GT: mean =", mean, ", variance =", variance);
-                self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
+    #         if mean is not None and variance is not None and not (isinstance(mean, float) and math.isnan(mean)) and not (isinstance(variance, float) and math.isnan(variance)):
+    #             print("Writing moving stats for NO2_GT: mean =", mean, ", variance =", variance);
+    #             self.dbWriter.write_moving_statistics({"mean":mean, "variance":variance}, last_item['topic'], last_item['key']);
 
-            min = self.no2_gt_trend_detector.t_digest.percentile(0);
-            q1 = self.no2_gt_trend_detector.t_digest.percentile(25);
-            median = self.no2_gt_trend_detector.t_digest.percentile(50);
-            q3 = self.no2_gt_trend_detector.t_digest.percentile(75);
-            max = self.no2_gt_trend_detector.t_digest.percentile(100);
+    #         min = self.no2_gt_trend_detector.t_digest.percentile(0);
+    #         q1 = self.no2_gt_trend_detector.t_digest.percentile(25);
+    #         median = self.no2_gt_trend_detector.t_digest.percentile(50);
+    #         q3 = self.no2_gt_trend_detector.t_digest.percentile(75);
+    #         max = self.no2_gt_trend_detector.t_digest.percentile(100);
 
-            quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
-            if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
-                self.dbWriter.write_quantiles(quantiles, last_item['topic'], last_item['key']);
-            else:
-                print("Skipping write due to NULL quantile")
+    #         quantiles = {"min":min, "q1":q1, "median":median, "q3":q3, "max":max}
+    #         if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in quantiles.values()):
+    #             self.dbWriter.write_quantiles(quantiles, last_item['topic'], last_item['key']);
+    #         else:
+    #             print("Skipping write due to NULL quantile")
 
-            trend = self.no2_gt_trend_detector.trend();
+    #         trend = self.no2_gt_trend_detector.trend();
 
-            if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
-            elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
-            elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+    #         if trend == "Significant increasing trend":
+    #             self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+    #         elif trend == "Significant decreasing trend":
+    #             self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+    #         elif trend == "No significant trend":
+    #             self.dbWriter.write_trend(last_item, 0, last_item['topic']);
 
-            if self.verbose:
-                print(" + + + + + Current trend  + + + + + ", trend);
+    #         if self.verbose:
+    #             print(" + + + + + Current trend  + + + + + ", trend);
 
 
     def on_new_window_pt08_s4_no2(self, data):
@@ -553,11 +562,11 @@ class InWindowMKTrendDetector:
             trend = self.pt08_s4_no2_trend_detector.trend();
 
             if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.pt08_s4_no2_trend_detector.S);
             elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.pt08_s4_no2_trend_detector.S);
             elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.pt08_s4_no2_trend_detector.S);
 
             if self.verbose:
                 print(" + + + + + Current trend  + + + + + ", trend);
@@ -596,11 +605,11 @@ class InWindowMKTrendDetector:
             trend = self.pt08_s5_o3_trend_detector.trend();
 
             if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.pt08_s5_o3_trend_detector.S);
             elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.pt08_s5_o3_trend_detector.S);
             elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.pt08_s5_o3_trend_detector.S);
 
             if self.verbose:
                 print(" + + + + + Current trend  + + + + + ", trend);
@@ -639,11 +648,11 @@ class InWindowMKTrendDetector:
             trend = self.t_trend_detector.trend();
 
             if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.t_trend_detector.S);
             elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.t_trend_detector.S);
             elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.t_trend_detector.S);
 
             if self.verbose:
                 print(" + + + + + Current trend  + + + + + ", trend);
@@ -682,14 +691,14 @@ class InWindowMKTrendDetector:
             trend = self.ah_trend_detector.trend();
 
             if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.ah_trend_detector.S);
             elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.ah_trend_detector.S);
             elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.ah_trend_detector.S);
 
             if self.verbose:
-                print(" + + + + + Current trend  + + + + + ", trend);
+                print(" + + + + + Current trend  + + + + + ", trend)
                 print(" + + + + + TOPIC  + + + + + ", last_item['topic'])
 
 
@@ -726,11 +735,11 @@ class InWindowMKTrendDetector:
             trend = self.rh_trend_detector.trend();
 
             if trend == "Significant increasing trend":
-                self.dbWriter.write_trend(last_item, 1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.rh_trend_detector.S);
             elif trend == "Significant decreasing trend":
-                self.dbWriter.write_trend(last_item, -1, last_item['topic']);
+                self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.rh_trend_detector.S);
             elif trend == "No significant trend":
-                self.dbWriter.write_trend(last_item, 0, last_item['topic']);
+                self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.rh_trend_detector.S);
 
             if self.verbose:
                 print(" + + + + + Current trend  + + + + + ", trend)

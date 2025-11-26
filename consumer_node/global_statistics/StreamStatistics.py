@@ -148,7 +148,84 @@ class Centroid:
 
 
 
-# class FrequencyCounter:
+from math import ceil
+from typing import Iterable, Dict, Tuple, List
 
-#     def __init__(self):
+
+
+
+
+
+class LossyCounting:
+    """
+    Lossy Counting for singleton items.
+
+    Parameters
+    ----------
+    epsilon : float
+        Error parameter (0 < epsilon < 1). Bucket width w = ceil(1/epsilon).
+    """
+    def __init__(self, epsilon: float):
+        assert 0 < epsilon < 1, "epsilon must be in (0,1)"
+        self.epsilon = epsilon
+        self.w = ceil(1.0 / epsilon)           # bucket width
+        self.N = 0                             # total items seen so far
+        self.bucket_id = 1                     # current bucket id (starts at 1)
+        # table: item -> (count, delta)
+        self.table: Dict[object, Tuple[int, int]] = {}
+
+    def _maybe_prune(self):
+        # prune at bucket boundaries
+        if self.N % self.w != 0:
+            return
+        b = self.bucket_id
+        # delete entries with count + delta <= bucket_id
+        to_delete = [item for item, (c, delta) in self.table.items() if c + delta <= b]
+        for item in to_delete:
+            del self.table[item]
+        # after pruning, next bucket id
+        self.bucket_id += 1
+
+    def process_item(self, item):
+        """Process a single item from the stream."""
+        self.N += 1
+        if item in self.table:
+            c, delta = self.table[item]
+            self.table[item] = (c + 1, delta)
+        else:
+            # new entry: count=1, delta = current_bucket_id - 1
+            self.table[item] = (1, self.bucket_id - 1)
+
+        # prune if the condition frequency + Delta <= current_bucket_id)
+        self._maybe_prune()
+
+
+    def estimated_counts(self) -> Dict[object, int]:
+        """Return estimated counts (lower bounds) for all items currently in table."""
+        return {item: c for item, (c, _) in self.table.items()}
+    
+
+
+    def frequent_items(self, support: float) -> List[Tuple[object, int]]:
+        """
+        Return list of (item, est_count) that are frequent wrt support s.
+
+        Papers state items with true frequency > s*N are guaranteed present.
+        To be conservative we return items with est_count >= (support - epsilon) * N.
+        """
+        s = support
+        assert 0 <= s <= 1
+        threshold = max(0, (s - self.epsilon) * self.N)
+        result = []
+        for item, (c, delta) in self.table.items():
+            if c >= threshold:
+                result.append((item, c))
+        # sort descending by estimated count
+        result.sort(key=lambda x: -x[1])
+        return result
+
+    def size(self) -> int:
+        """Number of entries currently stored (space usage indicator)."""
+        return len(self.table)
+
 
