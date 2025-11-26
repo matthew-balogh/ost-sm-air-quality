@@ -34,8 +34,8 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             print("-------------------------------")
 
     def detect(self, data):
-        if (len(data) < 2):
-            print("Minimum 2 data points are required for anomaly detector. Skipping detection.")
+        if (len(data) < 8):
+            print("Minimum 8 data points are required for anomaly detector. Skipping detection.")
             return
 
         x = data[-1]
@@ -69,8 +69,6 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             
             if y_hat:
                 predictions[est_key] = 1
-
-            # s.update(nov_score) !
 
         is_anomalous = any(predictions.values())
 

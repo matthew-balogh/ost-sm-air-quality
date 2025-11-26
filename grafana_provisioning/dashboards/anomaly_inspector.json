@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 0,
+  "id": 1,
   "links": [],
   "panels": [
     {
@@ -81,16 +81,24 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "value"
+              "id": "byFrameRefID",
+              "options": "Sensor readings"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "semi-dark-blue",
+                  "fixedColor": "dark-blue",
                   "mode": "fixed"
                 }
+              },
+              {
+                "id": "custom.pointSize",
+                "value": 7
+              },
+              {
+                "id": "displayName",
+                "value": "Sensor reading"
               }
             ]
           },
@@ -103,68 +111,21 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "dark-purple",
+                  "fixedColor": "yellow",
                   "mode": "fixed"
                 }
               },
               {
-                "id": "custom.drawStyle",
-                "value": "points"
-              },
-              {
                 "id": "custom.pointSize",
-                "value": 30
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "value"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Actual sensor reading"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "anomaly.value"
-            },
-            "properties": [
+                "value": 15
+              },
               {
                 "id": "displayName",
                 "value": "Abnormal reading"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "Missing values"
-            },
-            "properties": [
+              },
               {
                 "id": "custom.drawStyle",
                 "value": "points"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "super-light-purple",
-                  "mode": "fixed"
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "Missing value"
-              },
-              {
-                "id": "custom.pointSize",
-                "value": 25
               }
             ]
           },
@@ -177,21 +138,21 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "orange",
+                  "fixedColor": "#000000",
                   "mode": "fixed"
                 }
               },
               {
-                "id": "custom.drawStyle",
-                "value": "points"
-              },
-              {
                 "id": "custom.pointSize",
-                "value": 16
+                "value": 12
               },
               {
                 "id": "displayName",
-                "value": "Global anomaly"
+                "value": "Global abnormality"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "points"
               }
             ]
           },
@@ -207,7 +168,7 @@
               },
               {
                 "id": "custom.pointSize",
-                "value": 8
+                "value": 7
               },
               {
                 "id": "color",
@@ -218,22 +179,15 @@
               },
               {
                 "id": "displayName",
-                "value": "Local anomaly"
+                "value": "Local abnormality"
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "environment.value"
-            },
-            "properties": []
           }
         ]
       },
       "gridPos": {
         "h": 12,
-        "w": 18,
+        "w": 17,
         "x": 0,
         "y": 0
       },
@@ -262,7 +216,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT time, CASE WHEN CAST(value as DOUBLE) = -200 THEN NULL ELSE CAST(value as DOUBLE) END as value\nFROM environment\nWHERE topic = '$topic';",
+          "rawSql": "SELECT time, CASE WHEN value = -200 THEN NULL ELSE value END as value\nFROM environment\nWHERE topic = '$topic'\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Sensor readings",
           "sql": {
             "columns": [
@@ -291,7 +245,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, CAST(value as DOUBLE)\nFROM anomaly\nWHERE topic = '$topic';",
+          "rawSql": "SELECT time, value\nFROM anomaly\nWHERE topic = '$topic'\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Anomalies",
           "sql": {
             "columns": [
@@ -320,7 +274,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, CAST(value as DOUBLE) as missing_value\nFROM anomaly\nWHERE topic = '$topic'\n  AND missing = 1",
+          "rawSql": "SELECT time, value as missing_value\nFROM anomaly\nWHERE topic = '$topic'\n  AND missing = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Missing values",
           "sql": {
             "columns": [
@@ -349,7 +303,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, CAST(value as DOUBLE) as global_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND global = 1",
+          "rawSql": "SELECT time, value as global_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND global = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Global anomalies",
           "sql": {
             "columns": [
@@ -378,7 +332,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, CAST(value as DOUBLE) as local_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND local = 1",
+          "rawSql": "SELECT time, value as local_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND local = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Local anomalies",
           "sql": {
             "columns": [
@@ -446,8 +400,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 18,
+        "w": 7,
+        "x": 17,
         "y": 0
       },
       "id": 2,
@@ -461,7 +415,7 @@
           "calcs": [
             "count"
           ],
-          "fields": "/^anomaly\\.value$/",
+          "fields": "/^value$/",
           "values": false
         },
         "showPercentChange": false,
@@ -480,7 +434,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, CAST(value as DOUBLE)\nFROM anomaly\nWHERE topic = '$topic';",
+          "rawSql": "SELECT time, value\nFROM anomaly\nWHERE topic = '$topic'\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Anomalies",
           "sql": {
             "columns": [
@@ -538,8 +492,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
+        "w": 7,
+        "x": 17,
         "y": 4
       },
       "id": 3,
@@ -554,7 +508,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select time, value\nfrom anomaly\nwhere topic = '$topic'\norder by time desc",
+          "rawSql": "select time, value\nfrom anomaly\nwhere topic = '$topic'\n  AND time >= $__timeFrom() AND time <= $__timeTo()\norder by time desc;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -585,14 +539,14 @@
     "list": [
       {
         "current": {
-          "text": "pt08_s1_co",
-          "value": "pt08_s1_co"
+          "text": "t",
+          "value": "t"
         },
         "label": "Topic",
         "name": "topic",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "Carbon Monoxide (CO)",
             "value": "pt08_s1_co"
           },
@@ -617,7 +571,7 @@
             "value": "pt08_s5_o3"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Temperature",
             "value": "t"
           },
@@ -638,12 +592,12 @@
     ]
   },
   "time": {
-    "from": "2004-07-11T04:30:16.216Z",
-    "to": "2004-07-15T22:52:58.378Z"
+    "from": "2004-07-14T13:43:47.027Z",
+    "to": "2004-07-22T04:54:03.243Z"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Anomaly Inspector",
   "uid": "adt22k7",
-  "version": 4
+  "version": 9
 }

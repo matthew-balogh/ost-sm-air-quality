@@ -84,6 +84,7 @@ if __name__ == "__main__":
 
     databaseWriter = InfluxDbUtilities.DatabaseWriter(verbose=True);
     ## To fix Grafana problenms with missing measurements, create all measurements at the start
+    databaseWriter.create_pt08_s1_co_true_labels();
     databaseWriter.create_all_measurements();
 
     reader.register_observer(databaseWriter)
