@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "cf54zstweru9sc"
+        "uid": "af590qx8lzytcc"
       },
       "description": "",
       "fieldConfig": {
@@ -257,7 +257,7 @@
           "dataset": "iox",
           "datasource": {
             "type": "influxdb",
-            "uid": "af53sqdrlbeo0a"
+            "uid": "af590qx8lzytcc"
           },
           "editorMode": "code",
           "format": "table",
@@ -285,7 +285,7 @@
           "dataset": "iox",
           "datasource": {
             "type": "influxdb",
-            "uid": "af53sqdrlbeo0a"
+            "uid": "af590qx8lzytcc"
           },
           "editorMode": "code",
           "format": "table",
@@ -314,13 +314,13 @@
           "dataset": "iox",
           "datasource": {
             "type": "influxdb",
-            "uid": "af53sqdrlbeo0a"
+            "uid": "af590qx8lzytcc"
           },
           "editorMode": "code",
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, CAST(value as DOUBLE) as missing_value\nFROM anomaly\nWHERE topic = '$topic'\n  AND missing",
+          "rawSql": "SELECT time, CAST(value as DOUBLE) as missing_value\nFROM anomaly\nWHERE topic = '$topic'\n  AND missing = 1",
           "refId": "Missing values",
           "sql": {
             "columns": [
@@ -343,13 +343,13 @@
           "dataset": "iox",
           "datasource": {
             "type": "influxdb",
-            "uid": "af53sqdrlbeo0a"
+            "uid": "af590qx8lzytcc"
           },
           "editorMode": "code",
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, CAST(value as DOUBLE) as global_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND global",
+          "rawSql": "SELECT time, CAST(value as DOUBLE) as global_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND global = 1",
           "refId": "Global anomalies",
           "sql": {
             "columns": [
@@ -372,13 +372,13 @@
           "dataset": "iox",
           "datasource": {
             "type": "influxdb",
-            "uid": "af53sqdrlbeo0a"
+            "uid": "af590qx8lzytcc"
           },
           "editorMode": "code",
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, CAST(value as DOUBLE) as local_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND local",
+          "rawSql": "SELECT time, CAST(value as DOUBLE) as local_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND local = 1",
           "refId": "Local anomalies",
           "sql": {
             "columns": [
@@ -404,7 +404,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "cf54zstweru9sc"
+        "uid": "af590qx8lzytcc"
       },
       "fieldConfig": {
         "defaults": {
@@ -458,7 +458,9 @@
         "orientation": "auto",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": ["count"],
+          "calcs": [
+            "count"
+          ],
           "fields": "/^anomaly\\.value$/",
           "values": false
         },
@@ -472,7 +474,7 @@
           "dataset": "iox",
           "datasource": {
             "type": "influxdb",
-            "uid": "af53sqdrlbeo0a"
+            "uid": "af590qx8lzytcc"
           },
           "editorMode": "code",
           "format": "table",
@@ -503,7 +505,8 @@
     },
     {
       "datasource": {
-        "uid": "cf54zstweru9sc"
+        "type": "influxdb",
+        "uid": "af590qx8lzytcc"
       },
       "fieldConfig": {
         "defaults": {
@@ -582,14 +585,14 @@
     "list": [
       {
         "current": {
-          "text": "t",
-          "value": "t"
+          "text": "pt08_s1_co",
+          "value": "pt08_s1_co"
         },
         "label": "Topic",
         "name": "topic",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "Carbon Monoxide (CO)",
             "value": "pt08_s1_co"
           },
@@ -614,7 +617,7 @@
             "value": "pt08_s5_o3"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Temperature",
             "value": "t"
           },
@@ -635,12 +638,12 @@
     ]
   },
   "time": {
-    "from": "2004-07-01T00:00:00.000Z",
-    "to": "2004-07-31T16:00:00.000Z"
+    "from": "2004-07-11T04:30:16.216Z",
+    "to": "2004-07-15T22:52:58.378Z"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Anomaly Inspector",
   "uid": "adt22k7",
-  "version": 10
+  "version": 4
 }
