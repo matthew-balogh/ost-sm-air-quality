@@ -52,22 +52,15 @@ In stream mining, we are limited to a portion of data and make decisions real-ti
 
 > "this is of stark contrast to stream mining, where data streams produce elements in a sequential, continuous fashion, and may also be impermanent, or transient, in nature ... This means stream data may only be available for a short time."
 
-
- The authors refer to *Babcock et al. (2002)*, highlighting that
+The authors refer to *Babcock et al. (2002)*, highlighting that
  
  > "once an element from a data stream has been processed, it is discarded or archived. It cannot be retrieved easily unless it is explicitly stored in memory, which is small relative to the size of data streams."
 
 ## Dataset
 
-The dataset is the *UCI Air Quality* dataset *Vito, S. (2008)* which
-includes responses of gas sensor devices deployed in an Italian city. Besides these device readings, each gas
-measurement has a counterpart feature which denotes the gas
-concentration recorded by a co-located certified analyzer. Additionally,
-readings related to temperature along with absolute and relative
-humidity are included in the dataset.
+The dataset is the *UCI Air Quality* dataset *Vito, S. (2008)* which includes responses of gas sensor devices deployed in an Italian city. Besides these device readings, each gas measurement has a counterpart feature which denotes the gas concentration recorded by a co-located certified analyzer. Additionally, readings related to temperature along with absolute and relative humidity are included in the dataset.
 
-The records span 1 year from March 2004 to February 2025, and are present in hourly aggregated form. Missing values are denoted with
-the value of `-200`.
+The records span 1 year from March 2004 to February 2025, and present hourly aggregated measurements. Missing values are denoted with the value of `-200`.
 
 \newpage
 ## System architecture
@@ -92,19 +85,28 @@ The stream mining pipeline includes components of *simulator*, *producer*, *cons
 
 ## Modeling and Predictions
 
+### Overview
+
 ![High-level view of the offline and online machine learning pipeline.](../_images/modeling_design.png)
 
-For *Anomaly Detection*, three simple yet essential methods were utilized by following a general novelty detection procedure:
+### Anomaly detection
 
-1. Data transformation, to better reflect properties of interest
+For *Anomaly Detection*, different techniques were utilized ranging from recognizing sensor readings with missing measurement to detecting local and global outliers, in each sensor seperately.
+
+Both, local and global approaches were developed with the general novelty, outlier detection methodology in mind, where the steps are:
+
+1. Transform the data, to better reflect properties of interest
 2. Obtain a novelty function
-3. Apply peak picking algorithm on the novelty function.
+3. Apply peak picking algorithm on the novelty function
 
-Values of `-200` were replaced with `NA`. First, readings with missing values---meaning no value for a sensor for an entire hour---were detected. As a second method, missing values were imputed with the median of an 8-sample window, derivative operator was applied on this data, and positive peaks were considered by clipping negative changes to zero, only to apply a traditional IQR-based outlier detection on this obtained novelty function where `NA`s were re-inserted after the derivative function.
-As for a third approach, the same novelty detection was followed but percentiles were calculated based on an iteratively updated and maintained *T-digest* algorithm accounting for a global opinion on abnormal readings.
+To detect local patterns in form of sudden changes (peaks and valleys), an 8-sample window was utilized on the streamlined data. As part of the data transformation, values of `-200` were replaced with `NA`. The most recent element in the window was dedicates as a test sample to make predictions for, while the rest of the in-window samples (at most 7) were designated as historical training points. Derivative operation was applied on the window data to turn a measurement value $x_T$ into the change measured from $x_{T-1}$. This resulted in the novelty function, where `NA` values were first imputed with the window median but were transformed back to `NA` once the difference values were obtained. During the "training", the in-window estimator calulates statistics ($IQR, Q1, Q3$) from the in-window historical samples to perform a traditional outlier detection test using the $Q1 - 1.5 \times IQR$ and $Q3 + 1.5 \times IQR$ as thresholds to flag the test sample as outlier.
+
+To account for out-of-window global patterns and to implement a detector that is applicable in stream mining systems where we cannot always rely on storing every incoming data point, an online detector was implemented using the *T-digest* algorithm. This method uses the same peak picking strategy using the traditional outlier thresholds, yet the quartiles along with the *Interquartile Range* get iteratively updated by each new sample. The algorithm maintains a centroid-based representation about these statistics using the incoming data and updates its state through merges.
 
 
 ## Experiments and testing
+
+> TODO: add outputs of anomaly detection
 
 
 
@@ -115,3 +117,5 @@ Wares, S., Isaacs, J. and Elyan, E. (2019). Data stream mining: methods and chal
 Babcock, B., Babu, S., Datar, M., Motwani, R. and Widom, J. (2002, June). Models and issues in data stream systems. In Proceedings of the twenty-first ACM SIGMOD-SIGACT-SIGART symposium on Principles of database systems (pp. 1–16).
 
 Vito, S. (2008) Air Quality Dataset. UCI Machine Learning Repository. Available at: https://archive.ics.uci.edu/ml/datasets/Air+Quality (Accessed: 25 November 2025).
+
+> TODO: reference *T-digest*

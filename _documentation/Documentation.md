@@ -10,6 +10,10 @@
     architecture](#system-architecture)
 -   [<span class="toc-section-number">5</span> Modeling and
     Predictions](#modeling-and-predictions)
+    -   [<span class="toc-section-number">5.1</span>
+        Overview](#overview)
+    -   [<span class="toc-section-number">5.2</span> Anomaly
+        detection](#anomaly-detection)
 -   [<span class="toc-section-number">6</span> Experiments and
     testing](#experiments-and-testing)
 -   [<span class="toc-section-number">7</span> References](#references)
@@ -67,8 +71,8 @@ feature which denotes the gas concentration recorded by a co-located
 certified analyzer. Additionally, readings related to temperature along
 with absolute and relative humidity are included in the dataset.
 
-The records span 1 year from March 2004 to February 2025, and are
-present in hourly aggregated form. Missing values are denoted with the
+The records span 1 year from March 2004 to February 2025, and present
+hourly aggregated measurements. Missing values are denoted with the
 value of `-200`.
 
 ## System architecture
@@ -114,6 +118,8 @@ the database for new data to show the latest insights in real-time.
 
 ## Modeling and Predictions
 
+### Overview
+
 <figure>
 <img src="../_images/modeling_design.png"
 alt="High-level view of the offline and online machine learning pipeline." />
@@ -121,26 +127,48 @@ alt="High-level view of the offline and online machine learning pipeline." />
 machine learning pipeline.</figcaption>
 </figure>
 
-For *Anomaly Detection*, three simple yet essential methods were
-utilized by following a general novelty detection procedure:
+### Anomaly detection
 
-1.  Data transformation, to better reflect properties of interest
+For *Anomaly Detection*, different techniques were utilized ranging from
+recognizing sensor readings with missing measurement to detecting local
+and global outliers, in each sensor seperately.
+
+Both, local and global approaches were developed with the general
+novelty, outlier detection methodology in mind, where the steps are:
+
+1.  Transform the data, to better reflect properties of interest
 2.  Obtain a novelty function
-3.  Apply peak picking algorithm on the novelty function.
+3.  Apply peak picking algorithm on the novelty function
 
-Values of `-200` were replaced with `NA`. First, readings with missing
-values—meaning no value for a sensor for an entire hour—were detected.
-As a second method, missing values were imputed with the median of an
-8-sample window, derivative operator was applied on this data, and
-positive peaks were considered by clipping negative changes to zero,
-only to apply a traditional IQR-based outlier detection on this obtained
-novelty function where `NA`s were re-inserted after the derivative
-function. As for a third approach, the same novelty detection was
-followed but percentiles were calculated based on an iteratively updated
-and maintained *T-digest* algorithm accounting for a global opinion on
-abnormal readings.
+To detect local patterns in form of sudden changes (peaks and valleys),
+an 8-sample window was utilized on the streamlined data. As part of the
+data transformation, values of `-200` were replaced with `NA`. The most
+recent element in the window was dedicates as a test sample to make
+predictions for, while the rest of the in-window samples (at most 7)
+were designated as historical training points. Derivative operation was
+applied on the window data to turn a measurement value *x*<sub>*T*</sub>
+into the change measured from *x*<sub>*T* − 1</sub>. This resulted in
+the novelty function, where `NA` values were first imputed with the
+window median but were transformed back to `NA` once the difference
+values were obtained. During the “training”, the in-window estimator
+calulates statistics (*I**Q**R*, *Q*1, *Q*3) from the in-window
+historical samples to perform a traditional outlier detection test using
+the *Q*1 − 1.5 × *I**Q**R* and *Q*3 + 1.5 × *I**Q**R* as thresholds to
+flag the test sample as outlier.
+
+To account for out-of-window global patterns and to implement a detector
+that is applicable in stream mining systems where we cannot always rely
+on storing every incoming data point, an online detector was implemented
+using the *T-digest* algorithm. This method uses the same peak picking
+strategy using the traditional outlier thresholds, yet the quartiles
+along with the *Interquartile Range* get iteratively updated by each new
+sample. The algorithm maintains a centroid-based representation about
+these statistics using the incoming data and updates its state through
+merges.
 
 ## Experiments and testing
+
+> TODO: add outputs of anomaly detection
 
 ## References
 
@@ -156,3 +184,5 @@ database systems (pp. 1–16).
 Vito, S. (2008) Air Quality Dataset. UCI Machine Learning Repository.
 Available at: https://archive.ics.uci.edu/ml/datasets/Air+Quality
 (Accessed: 25 November 2025).
+
+> TODO: reference *T-digest*
