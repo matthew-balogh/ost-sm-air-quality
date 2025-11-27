@@ -12,6 +12,9 @@ from listeners.sliding_window_listener import SlidingWindowListener
 from dotenv import load_dotenv
 import os
 
+from datetime import datetime
+
+
 # Load the .env file
 load_dotenv();
 
@@ -23,6 +26,19 @@ def error(self, data: str, exception: InfluxDBError):
 
 def retry(self, data: str, exception: InfluxDBError):
     print(f"Failed retry writing batch: config: {self}, data: {data} retry: {exception}")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class DatabaseWriter(SlidingWindowListener):
@@ -59,6 +75,37 @@ class DatabaseWriter(SlidingWindowListener):
                                     error_callback=error,
                                     retry_callback=retry,
                                     write_options=self.write_options)
+        
+
+
+
+
+
+    def create_all_measurements(self):
+        measurements = ["environment", "anomaly", "trend"]
+        for table_name in measurements:
+            Measurement_time = "01/01/1970 00.00.01"
+            unixTime = int(datetime.strptime(
+                Measurement_time, "%d/%m/%Y %H.%M.%S"
+            ).timestamp() * 1e9)
+
+            dummy_tags = {"init": "true"}
+            dummy_fields = {"dummy_value": 0}
+
+            dummy_point = {
+                "measurement": table_name,
+                "tags": dummy_tags,
+                "fields": dummy_fields,
+                "time": unixTime
+            }
+
+            self.client.write(dummy_point)
+
+        print("Measurements created (dummy rows inserted).")
+    
+
+
+        
 
         # instantiate OfflineForecaster singleton so we can fetch predictions
         OfflineForecaster = None
@@ -108,18 +155,37 @@ class DatabaseWriter(SlidingWindowListener):
                             "local": "local" in types,
                             "global": "global" in types,
                         }, anomalous_sample['key'])
-        
-        
-    def write_trend(self, sample, type, topic):
+    
+    
+
+
+    def write_trend(self, sample, type, topic,S_value):
         '''
         data should have the same structure as other stream data + trend type + topic name (e.g: co_gt,...).
-    
+
         '''
         self.write_data("trend", {"topic": topic},
                         {
                             "value": sample['value'],
+                            "S": S_value,
                             "type": type,
                         }, sample['key'])
+    
+
+
+    def write_quantiles(self, quantiles, topic, key):
+
+        self.write_data("quantiles", {"topic": topic}, {"min": quantiles['min'],
+                                                      "q1": quantiles['q1'], "median": quantiles['median'],
+                                                      "q3": quantiles['q3'], "max": quantiles['max']}, key
+                        )
+
+    def write_moving_statistics(self, stats, topic, key):
+
+        self.write_data("moving_statistics", {"topic": topic}, 
+                        {"mean": stats['mean'],
+                        "variance": stats['variance']
+                        }, key)
 
 
     def write_forecasting_data(self, topic, preds,key):
@@ -214,64 +280,64 @@ class DatabaseWriter(SlidingWindowListener):
 
 
     def write_data(self, table_name, tags, fields, Measurement_time):
-            '''
-            Table_name : string.
-            tags: dict,
-            Fields: dict,
-            Measurement_time: string in format "%d/%m/%Y %H.%M.%S"
-            '''
-            # from influxdb_client_3 import Point
-            
-            unixTime = int(datetime.strptime(Measurement_time, "%d/%m/%Y %H.%M.%S").timestamp() * 1e9);
+        '''
+        Table_name : string.
+        tags: dict,
+        Fields: dict,
+        Measurement_time: string in format "%d/%m/%Y %H.%M.%S"
+        '''
+        # from influxdb_client_3 import Point
+        
+        unixTime = int(datetime.strptime(Measurement_time, "%d/%m/%Y %H.%M.%S").timestamp() * 1e9);
 
-            print(f"Writing to InfluxDB: measurement={table_name}, tags={tags}, fields={fields}, time={Measurement_time} (unix: {unixTime})")
+        print(f"Writing to InfluxDB: measurement={table_name}, tags={tags}, fields={fields}, time={Measurement_time} (unix: {unixTime})")
 
-            # Convert string numbers to floats and clean precision
-            cleaned_fields = {}
-            for key, val in fields.items():
-                if isinstance(val, str):
-                    try:
-                        cleaned_fields[key] = round(float(val), 10)
-                    except ValueError:
-                        # Keep as string if it's not a number
-                        cleaned_fields[key] = val
-                elif isinstance(val, (int, float)):
-                    # Force everything to float (not int) to avoid 'i' suffix
-                    cleaned_fields[key] = round(float(val), 10)
-                else:
-                    cleaned_fields[key] = val
-
-            print(f"DEBUG - Cleaned fields: {cleaned_fields}")
-            print(f"DEBUG - Field types: {[(k, type(v).__name__) for k, v in cleaned_fields.items()]}")
-
-            try:
-                # Use InfluxDB 3 Point API
-                point = Point(table_name)
-                
-                # Add tags
-                for key, value in tags.items():
-                    point = point.tag(key, str(value))
-                
-                # Add fields
-                for key, value in cleaned_fields.items():
-                    point = point.field(key, value)
-                
-                # Add timestamp
-                point = point.time(unixTime)
-                
-                # Debug: print the line protocol
+        # Convert string numbers to floats and clean precision
+        cleaned_fields = {}
+        for key, val in fields.items():
+            if isinstance(val, str):
                 try:
-                    line_protocol = point.to_line_protocol()
-                    print(f"DEBUG - Line protocol: {line_protocol}")
-                except Exception as lp_error:
-                    print(f"DEBUG - Could not generate line protocol: {lp_error}")
-                
-                self.client.write(database=self.database, record=point)
+                    cleaned_fields[key] = round(float(val), 10)
+                except ValueError:
+                    # Keep as string if it's not a number
+                    cleaned_fields[key] = val
+            elif isinstance(val, (int, float)):
+                # Force everything to float (not int) to avoid 'i' suffix
+                cleaned_fields[key] = round(float(val), 10)
+            else:
+                cleaned_fields[key] = val
+
+        print(f"DEBUG - Cleaned fields: {cleaned_fields}")
+        print(f"DEBUG - Field types: {[(k, type(v).__name__) for k, v in cleaned_fields.items()]}")
+
+        try:
+            # Use InfluxDB 3 Point API
+            point = Point(table_name)
             
-            except Exception as e:
-                print(f"InfluxDB write failed: {e}")
-                print(f"Point data: measurement={table_name}, tags={tags}, fields={cleaned_fields}, time={unixTime}")
-                raise
+            # Add tags
+            for key, value in tags.items():
+                point = point.tag(key, str(value))
+            
+            # Add fields
+            for key, value in cleaned_fields.items():
+                point = point.field(key, value)
+            
+            # Add timestamp
+            point = point.time(unixTime)
+            
+            # Debug: print the line protocol
+            try:
+                line_protocol = point.to_line_protocol()
+                print(f"DEBUG - Line protocol: {line_protocol}")
+            except Exception as lp_error:
+                print(f"DEBUG - Could not generate line protocol: {lp_error}")
+            
+            self.client.write(database=self.database, record=point)
+        
+        except Exception as e:
+            print(f"InfluxDB write failed: {e}")
+            print(f"Point data: measurement={table_name}, tags={tags}, fields={cleaned_fields}, time={unixTime}")
+            raise
 
     
 

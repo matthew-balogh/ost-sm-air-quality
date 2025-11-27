@@ -55,7 +55,7 @@ services:
           "--list",
         ]
       interval: 5s
-      timeout: 10s
+      timeout: 80s
       retries: 3
 
   kafka-ui:
@@ -82,6 +82,24 @@ services:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: broker:29092
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      kafka:
+        condition: service_healthy
+      influxdb3-core:
+        condition: service_started
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana_provisioning/provisioning:/etc/grafana/provisioning
+      - ./grafana_provisioning/dashboards:/var/lib/grafana/dashboards
 
   sensors-simulator:
     build: streamer
@@ -110,3 +128,6 @@ services:
       - ./artifacts:/app/artifacts:ro
     networks:
       - default
+
+volumes:
+  grafana_data:

@@ -10,3 +10,4 @@ AirQualityUCI.csv
 \outputs
 *.png
 .env
+*.env

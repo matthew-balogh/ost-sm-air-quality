@@ -131,6 +131,8 @@ class Centroid:
 
 
 
+
+
 ## T-digest algorithm for inter-quartile
 
 ##@misc{dunning2019computingextremelyaccuratequantiles,
@@ -142,3 +144,55 @@ class Centroid:
 #       primaryClass={stat.CO},
 #       url={https://arxiv.org/abs/1902.04023}, 
 # }
+
+
+
+
+from math import ceil
+from typing import Iterable, Dict, Tuple, List
+
+
+
+
+import math
+from collections import defaultdict
+from scipy.stats import norm
+
+class LossyCounting:
+    def __init__(self, epsilon: float, eps_tie: float):
+        self.epsilon = epsilon
+        self.eps_tie = eps_tie
+        self.w = math.ceil(1.0 / epsilon)
+        self.N = 0
+        self.bucket_id = 1
+        self.table = defaultdict(lambda: (0, 0))  # key -> (count, delta)
+
+    def _quantize(self, x):
+        return math.floor(x / self.eps_tie)
+
+    def _maybe_prune(self):
+        if self.N % self.w != 0:
+            return
+        b = self.bucket_id
+        to_delete = [key for key, (c, delta) in self.table.items() if c + delta <= b]
+        for key in to_delete:
+            del self.table[key]
+        self.bucket_id += 1
+
+    def process_item(self, x):
+        self.N += 1
+        key = self._quantize(x)
+        c, delta = self.table[key]
+        self.table[key] = (c + 1, delta if delta else self.bucket_id - 1)
+        self._maybe_prune()
+
+    def tie_groups(self):
+        return [c for c, _ in self.table.values() if c > 1]
+
+    def clear(self):
+        self.table.clear()
+        self.N = 0
+        self.bucket_id = 1
+
+
+
