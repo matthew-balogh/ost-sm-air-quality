@@ -143,18 +143,18 @@ novelty, outlier detection methodology in mind, where the steps are:
 To detect local patterns in form of sudden changes (peaks and valleys),
 an 8-sample window was utilized on the streamlined data. As part of the
 data transformation, values of `-200` were replaced with `NA`. The most
-recent element in the window was dedicates as a test sample to make
+recent element in the window was selected as a test sample to make
 predictions for, while the rest of the in-window samples (at most 7)
 were designated as historical training points. Derivative operation was
 applied on the window data to turn a measurement value *x*<sub>*T*</sub>
-into the change measured from *x*<sub>*T* − 1</sub>. This resulted in
-the novelty function, where `NA` values were first imputed with the
-window median but were transformed back to `NA` once the difference
-values were obtained. During the “training”, the in-window estimator
-calulates statistics (*I**Q**R*, *Q*1, *Q*3) from the in-window
-historical samples to perform a traditional outlier detection test using
-the *Q*1 − 1.5 × *I**Q**R* and *Q*3 + 1.5 × *I**Q**R* as thresholds to
-flag the test sample as outlier.
+into the deviation from *x*<sub>*T* − 1</sub>. This resulted in the
+novelty function, where `NA` values were first imputed with the window
+median but were transformed back to `NA` once the difference values were
+obtained. During the “training”, the in-window estimator calulates
+statistics (*I**Q**R*, *Q*1, *Q*3) from the in-window historical samples
+to perform a traditional outlier detection test using the
+*Q*1 − 1.5 × *I**Q**R* and *Q*3 + 1.5 × *I**Q**R* as thresholds to flag
+the test sample as outlier.
 
 To account for out-of-window global patterns and to implement a detector
 that is applicable in stream mining systems where we cannot always rely
