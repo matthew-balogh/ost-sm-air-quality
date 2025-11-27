@@ -3,6 +3,7 @@ import os
 import sys
 
 from offline_forcasting.offline_forecasting import OfflineForecaster
+from online_forcasting.online_forecasting import OnlineForecaster
 from sensor_topics import SENSOR_TOPICS
 from anomaly_detector.anomaly_detector import InWindowAnomalyDetector
 from InfluxDB import InfluxDbUtilities
@@ -86,5 +87,8 @@ if __name__ == "__main__":
 
     forecaster = OfflineForecaster(verb=True, dbWriter=databaseWriter)
     reader.register_observer(forecaster)
+
+    online_forecaster = OnlineForecaster(verb=True, dbWriter=databaseWriter)
+    reader.register_observer(online_forecaster)
 
     reader.run()
