@@ -458,6 +458,7 @@ class OfflineForecaster(SlidingWindowListener):
         preds = self.predict(target=target_name)
         if preds:
             print(f"OfflineForecaster: {target_name} -> {preds}")
+            self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_pt08_s2_nmhc(self, data):
         if not data:
@@ -471,6 +472,7 @@ class OfflineForecaster(SlidingWindowListener):
         preds = self.predict(target=target_name)
         if preds:
             print(f"OfflineForecaster: {target_name} -> {preds}")
+            self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_pt08_s3_nox(self, data):
         if not data:
@@ -484,6 +486,7 @@ class OfflineForecaster(SlidingWindowListener):
         preds = self.predict(target=target_name)
         if preds:
             print(f"OfflineForecaster: {target_name} -> {preds}")
+            self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_pt08_s4_no2(self, data):
         if not data:
@@ -497,6 +500,7 @@ class OfflineForecaster(SlidingWindowListener):
         preds = self.predict(target=target_name)
         if preds:
             print(f"OfflineForecaster: {target_name} -> {preds}")
+            self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_pt08_s5_o3(self, data):
         if not data:
@@ -510,6 +514,7 @@ class OfflineForecaster(SlidingWindowListener):
         preds = self.predict(target=target_name)
         if preds:
             print(f"OfflineForecaster: {target_name} -> {preds}")
+            self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_t(self, data):
         if not data:
@@ -523,6 +528,7 @@ class OfflineForecaster(SlidingWindowListener):
         preds = self.predict(target=target_name)
         if preds:
             print(f"OfflineForecaster: {target_name} -> {preds}")
+            self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_rh(self, data):
         if not data:
@@ -552,3 +558,4 @@ class OfflineForecaster(SlidingWindowListener):
         preds = self.predict(target=target_name)
         if preds:
             print(f"OfflineForecaster: {target_name} -> {preds}")
+            self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
