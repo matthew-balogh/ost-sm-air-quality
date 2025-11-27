@@ -93,8 +93,8 @@ if __name__ == "__main__":
         dbWriter=databaseWriter,
         novelty_fn=derivateNoveltyFn,
         estimators={
-            "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1), upper_only=False),
-            "local": WindowOutlierDetector(upper_only=False),
+            "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1)),
+            "local": WindowOutlierDetector(),
             "missing":  MissingValueDetector(),
         },
         verb=False)

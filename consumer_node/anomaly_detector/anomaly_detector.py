@@ -14,8 +14,8 @@ class InWindowAnomalyDetector(SlidingWindowListener):
                  dbWriter:DatabaseWriter,
                  novelty_fn=derivateNoveltyFn,
                  estimators:dict={
-                    "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1), upper_only=True),
-                    "local": WindowOutlierDetector(upper_only=True),
+                    "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1)),
+                    "local": WindowOutlierDetector(),
                     "missing":  MissingValueDetector(),
                  },
                  min_samples=8,
