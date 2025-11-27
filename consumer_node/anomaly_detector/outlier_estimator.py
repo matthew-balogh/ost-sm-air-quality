@@ -18,9 +18,8 @@ class MissingValueDetector(BaseOutlierDetector):
         return np.isnan(np.asarray(X))
 
 class WindowOutlierDetector(BaseOutlierDetector):
-    def __init__(self, iqr_fence=1.5, upper_only=False):
+    def __init__(self, iqr_fence=1.5):
         self.iqr_fence = iqr_fence
-        self.upper_only = upper_only
 
     def fit(self, X, y=None):
         self.IQR_, self.Q1_, self.Q3_ = IQR.calc(np.asarray(X))
@@ -32,18 +31,14 @@ class WindowOutlierDetector(BaseOutlierDetector):
         upper = self.Q3_ + self.iqr_fence * self.IQR_
         X_arr = np.asarray(X)
 
-        if self.upper_only:
-            is_outlier = X_arr > upper
-        else:
-            is_outlier = (X_arr < lower) | (X_arr > upper)
+        is_outlier = (X_arr < lower) | (X_arr > upper)
 
         return is_outlier
 
 class TDigestOutlierDetector(BaseOutlierDetector):
-    def __init__(self, tdigest:SimpleTDigest, iqr_fence=1.5, upper_only=False):
+    def __init__(self, tdigest:SimpleTDigest, iqr_fence=1.5):
         self.tdigest = tdigest
         self.iqr_fence = iqr_fence
-        self.upper_only = upper_only
 
     def update(self, X):
         self.tdigest.update(X)
@@ -61,9 +56,6 @@ class TDigestOutlierDetector(BaseOutlierDetector):
         upper = Q3 + self.iqr_fence * IQR
         X_arr = np.asarray(X)
 
-        if self.upper_only:
-            is_outlier = X_arr > upper
-        else:
-            is_outlier = (X_arr < lower) | (X_arr > upper)
+        is_outlier = (X_arr < lower) | (X_arr > upper)
 
         return is_outlier

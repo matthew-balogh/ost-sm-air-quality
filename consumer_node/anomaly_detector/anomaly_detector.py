@@ -14,16 +14,18 @@ class InWindowAnomalyDetector(SlidingWindowListener):
                  dbWriter:DatabaseWriter,
                  novelty_fn=derivateNoveltyFn,
                  estimators:dict={
-                    "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1), upper_only=True),
-                    "local": WindowOutlierDetector(upper_only=True),
+                    "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1)),
+                    "local": WindowOutlierDetector(),
                     "missing":  MissingValueDetector(),
                  },
+                 min_samples=8,
                  verb=False):
         super().__init__()
 
         self.dbWriter = dbWriter
         self.novelty_fn = novelty_fn
         self.estimators = estimators
+        self.min_samples = min_samples
         self.verb = verb
 
         self.observers = []
@@ -33,44 +35,56 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             print("InWindowAnomalyDetector started")
             print("-------------------------------")
 
-    def detect(self, data):
-        if (len(data) < 2):
-            print("Minimum 2 data points are required for anomaly detector. Skipping detection.")
-            return
+    def fit(self, data):
+        self.data_ = data
+        return self
 
-        x = data[-1]
-        topic = x["topic"]
+    def look(self):
+        x = self.data_[-1]
+
+        self.x_key_ = x["key"]
+        self.x_value_ = float(x["value"])
+        self.x_topic_ = x["topic"]
+        self.x_ = x
+
+        return self
+    
+    def transform(self):
+        values = np.array([float(item["value"]) for item in self.data_], dtype=float)
+        values = np.where(values == -200, np.nan, values) # TODO: move upstream?
+        novelty_scores = self.novelty_fn(values)
+
+        self.values_ = values
+        self.novelty_scores_ = novelty_scores
+
+        self.X_nov_train_ = novelty_scores[:-1]
+        self.x_nov_ = novelty_scores[-1]
+
+        return self
+
+    def detect(self):
+        if (len(self.data_) < self.min_samples):
+            print(f"Minimum {self.min_samples} data points are required for anomaly detector. Skipping detection.")
+            return self
 
         if self.verb:
-            print(f"Detecting anomalies in Topic (\"{topic}\") within a window with length={len(data)}).")
-            print(f"Window elements: " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-            print(f"Predicting whether [{x['key']} with value of {x['value']}] is anomalous.")
-
-        # ensure data format
-        values = np.array([float(item["value"]) for item in data], dtype=float)
-        values = np.where(values == -200, np.nan, values) # TODO: move upstream?
-
-        # novelty function
-        novelty_scores = self.novelty_fn(values)
+            print(f"Detecting anomalies in Topic (\"{self.x_topic_}\") within a window with length={len(self.data_)}).")
+            print(f"Window elements: " + ", ".join(f"{item['key']}: {item['value']}" for item in self.data_))
+            print(f"Predicting whether [{self.x_key_} with value of {self.x_value_}] is anomalous.")
 
         # predictions
         predictions = {}
 
         for (est_key, estimator) in self.estimators.items():
-            X_train = novelty_scores[:-1]
-            x_test = novelty_scores[-1]
 
-            if hasattr(estimator, "update"):
-                y_hat = estimator.predict(x_test)
-                estimator.update(x_test)
+            if isinstance(estimator, TDigestOutlierDetector):
+                y_hat = estimator.predict(self.x_nov_)
             else:
-                y_hat = estimator.fit(X_train) \
-                    .predict(x_test)
+                y_hat = estimator.fit(self.X_nov_train_) \
+                    .predict(self.x_nov_)
             
             if y_hat:
                 predictions[est_key] = 1
-
-            # s.update(nov_score) !
 
         is_anomalous = any(predictions.values())
 
@@ -78,37 +92,46 @@ class InWindowAnomalyDetector(SlidingWindowListener):
             estimator_keys = [key for key, val in predictions.items() if val == 1]
 
             if self.verb:
-                self.print_detected(values, novelty_scores, x['key'], x_test, estimator_keys)
+                self.print_detected(self.values_, self.novelty_scores_, self.x_key_, self.x_nov_, estimator_keys)
 
             # store in db
-            self.dbWriter.write_anomaly(x, types=estimator_keys, topic=topic)
+            self.dbWriter.write_anomaly(self.x_, types=estimator_keys, topic=self.x_topic_)
+        
+        return self
+
+    def update_estimators(self):
+        for (est_key, estimator) in self.estimators.items():
+            if hasattr(estimator, "update"):
+                estimator.update(self.x_nov_)
+
+        return self
 
 
     # detect anomalies in sensor data
 
     def on_new_window_pt08_s1_co(self, data):
-        self.detect(data)
+        self.fit(data).look().transform().detect().update_estimators()
 
     def on_new_window_pt08_s2_nmhc(self, data):
-        self.detect(data)
+        self.fit(data).look().transform().detect().update_estimators()
 
     def on_new_window_pt08_s3_nox(self, data):
-        self.detect(data)
+        self.fit(data).look().transform().detect().update_estimators()
 
     def on_new_window_pt08_s4_no2(self, data):
-        self.detect(data)
+        self.fit(data).look().transform().detect().update_estimators()
 
     def on_new_window_pt08_s5_o3(self, data):
-        self.detect(data)
+        self.fit(data).look().transform().detect().update_estimators()
 
     def on_new_window_t(self, data):
-        self.detect(data)
+        self.fit(data).look().transform().detect().update_estimators()
 
     def on_new_window_ah(self, data):
-        self.detect(data)
+        self.fit(data).look().transform().detect().update_estimators()
 
     def on_new_window_rh(self, data):
-        self.detect(data)
+        self.fit(data).look().transform().detect().update_estimators()
     
     # skip anomaly detection on reference data
     

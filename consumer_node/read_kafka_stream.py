@@ -83,6 +83,7 @@ if __name__ == "__main__":
     reader = KafkaStreamReader()
 
     databaseWriter = InfluxDbUtilities.DatabaseWriter(verbose=True);
+    databaseWriter.create_pt08_s1_co_true_labels();
     ## To fix Grafana problenms with missing measurements, create all measurements at the start
     databaseWriter.create_all_measurements();
 
@@ -92,12 +93,11 @@ if __name__ == "__main__":
         dbWriter=databaseWriter,
         novelty_fn=derivateNoveltyFn,
         estimators={
-            "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1), upper_only=True),
-            "local": WindowOutlierDetector(upper_only=True),
+            "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1)),
+            "local": WindowOutlierDetector(),
             "missing":  MissingValueDetector(),
         },
-        verb=True)
-    
+        verb=False)
     reader.register_observer(anomalyDetector)
 
     forecaster = OfflineForecaster(verb=True, dbWriter=databaseWriter)
