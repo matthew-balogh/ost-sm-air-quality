@@ -80,14 +80,20 @@ class KafkaStreamReader:
 
 if __name__ == "__main__":
 
+    # Reader
     reader = KafkaStreamReader()
 
-    databaseWriter = InfluxDbUtilities.DatabaseWriter(verbose=True);
-    databaseWriter.create_pt08_s1_co_true_labels();
+    # Database writer
+
+    databaseWriter = InfluxDbUtilities.DatabaseWriter(verbose=False)
+    ## write true labels (for evaluation of anomalies)
+    databaseWriter.create_pt08_s1_co_true_labels()
     ## To fix Grafana problenms with missing measurements, create all measurements at the start
-    databaseWriter.create_all_measurements();
+    databaseWriter.create_all_measurements()
 
     reader.register_observer(databaseWriter)
+
+    # Anomaly detector
 
     anomalyDetector = InWindowAnomalyDetector(
         dbWriter=databaseWriter,
@@ -98,13 +104,15 @@ if __name__ == "__main__":
             "missing":  MissingValueDetector(),
         },
         verb=False)
+
     reader.register_observer(anomalyDetector)
 
-    forecaster = OfflineForecaster(verb=True, dbWriter=databaseWriter)
+    # Forecaster
+    forecaster = OfflineForecaster(verb=False, dbWriter=databaseWriter)
     reader.register_observer(forecaster)
 
-    Trend_detector = InWindowMKTrendDetector(verbose=True, t_digest_compression_delta=0.06, quantile_step = 5, dbWriter = databaseWriter);
-    reader.register_observer(Trend_detector);
-
+    # Trend detector
+    trendDetector = InWindowMKTrendDetector(verbose=False, t_digest_compression_delta=0.06, quantile_step = 5, dbWriter = databaseWriter)
+    reader.register_observer(trendDetector)
 
     reader.run()
