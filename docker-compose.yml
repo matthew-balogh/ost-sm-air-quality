@@ -73,7 +73,7 @@ services:
     profiles: ["dashboard-prototype"]
     build:
       context: .
-      dockerfile: dashboard/Dockerfile
+      dockerfile: streamlit/Dockerfile
     container_name: streamlit
     ports:
       - 8501:8501
