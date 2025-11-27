@@ -4,8 +4,8 @@ WORKDIR /app
 
 # TODO: mount instead of copy ?!
 
-COPY dashboard/dashboard_prototype.py ./dashboard_prototype.py
-COPY dashboard/requirements.txt ./requirements.txt
+COPY streamlit/dashboard_prototype.py ./dashboard_prototype.py
+COPY streamlit/requirements.txt ./requirements.txt
 
 COPY consumer_node/sensor_topics.py ./consumer_node/sensor_topics.py
 COPY consumer_node/listeners/sliding_window_listener.py ./consumer_node/listeners/sliding_window_listener.py
