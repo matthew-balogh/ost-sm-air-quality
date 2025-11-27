@@ -6,11 +6,7 @@ from offline_forcasting.offline_forecasting import OfflineForecaster
 from sensor_topics import SENSOR_TOPICS
 from InfluxDB import InfluxDbUtilities
 from trend_detector.TrendDetector import InWindowMKTrendDetector
-from global_statistics.StreamStatistics import SimpleTDigest
-
 from anomaly_detector.anomaly_detector import InWindowAnomalyDetector
-from anomaly_detector.novelty_function import derivateNoveltyFn
-from anomaly_detector.outlier_estimator import MissingValueDetector, WindowOutlierDetector, TDigestOutlierDetector
 
 class KafkaStreamReader:
     
@@ -94,17 +90,7 @@ if __name__ == "__main__":
     reader.register_observer(databaseWriter)
 
     # Anomaly detector
-
-    anomalyDetector = InWindowAnomalyDetector(
-        dbWriter=databaseWriter,
-        novelty_fn=derivateNoveltyFn,
-        estimators={
-            "global": TDigestOutlierDetector(tdigest=SimpleTDigest(delta=.1)),
-            "local": WindowOutlierDetector(),
-            "missing":  MissingValueDetector(),
-        },
-        verb=False)
-
+    anomalyDetector = InWindowAnomalyDetector(dbWriter=databaseWriter, verb=False)
     reader.register_observer(anomalyDetector)
 
     # Forecaster
