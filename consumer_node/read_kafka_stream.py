@@ -97,12 +97,13 @@ if __name__ == "__main__":
             "missing":  MissingValueDetector(),
         },
         verb=True)
+    
     reader.register_observer(anomalyDetector)
 
     forecaster = OfflineForecaster(verb=True)
     reader.register_observer(forecaster)
 
-    Trend_detector = InWindowMKTrendDetector(verbose=True, t_digest_compression_delta=0.08, quantile_step = 1, dbWriter = databaseWriter);
+    Trend_detector = InWindowMKTrendDetector(verbose=True, t_digest_compression_delta=0.06, quantile_step = 5, dbWriter = databaseWriter);
     reader.register_observer(Trend_detector);
 
 

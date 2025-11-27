@@ -155,12 +155,13 @@ class DatabaseWriter(SlidingWindowListener):
 
 
     def on_new_window_co_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        pass;
+        # if self.verbose:
+        #     print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
+        #     print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
 
-        last_item = data[-1]
-        self.write_data("environment",{"topic":"co_gt"},{"value":last_item['value']},last_item['key'])
+        # last_item = data[-1]
+        # self.write_data("environment",{"topic":"co_gt"},{"value":last_item['value']},last_item['key'])
 
 
 
@@ -175,18 +176,20 @@ class DatabaseWriter(SlidingWindowListener):
 
 
     def on_new_window_nmhc_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-        last_item = data[-1]
-        self.write_data("environment",{"topic":"nmhc_gt"},{"value":last_item['value']},last_item['key'])
+        pass;
+        # if self.verbose:
+        #     print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
+        #     print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        # last_item = data[-1]
+        # self.write_data("environment",{"topic":"nmhc_gt"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_c6h6_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-        last_item = data[-1]
-        self.write_data("environment",{"topic":"c6h6_gt"},{"value":last_item['value']},last_item['key'])
+        pass;
+        # if self.verbose:
+        #     print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
+        #     print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        # last_item = data[-1]
+        # self.write_data("environment",{"topic":"c6h6_gt"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_pt08_s2_nmhc(self, data):
         if self.verbose:
@@ -196,11 +199,12 @@ class DatabaseWriter(SlidingWindowListener):
         self.write_data("environment",{"topic":"pt08_s2_nmhc"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_nox_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-        last_item = data[-1]
-        self.write_data("environment",{"topic":"nox_gt"},{"value":last_item['value']},last_item['key'])
+        pass;
+        # if self.verbose:
+        #     print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
+        #     print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        # last_item = data[-1]
+        # self.write_data("environment",{"topic":"nox_gt"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_pt08_s3_nox(self, data):
         if self.verbose:
@@ -210,11 +214,12 @@ class DatabaseWriter(SlidingWindowListener):
         self.write_data("environment",{"topic":"pt08_s3_nox"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_no2_gt(self, data):
-        if self.verbose:
-            print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
-            print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
-        last_item = data[-1]
-        self.write_data("environment",{"topic":"no2_gt"},{"value":last_item['value']},last_item['key'])
+        pass;
+        # if self.verbose:
+        #     print("++++++++++++++++++++++++++++++++++++++ INFLUXDB +++++++++++++++++++++++++++++++++");
+        #     print(f"len={len(data)} | " + ", ".join(f"{item['key']}: {item['value']}" for item in data))
+        # last_item = data[-1]
+        # self.write_data("environment",{"topic":"no2_gt"},{"value":last_item['value']},last_item['key'])
 
     def on_new_window_pt08_s4_no2(self, data):
         if self.verbose:

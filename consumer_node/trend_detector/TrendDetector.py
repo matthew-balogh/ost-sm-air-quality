@@ -4,114 +4,101 @@ from global_statistics.StreamStatistics import SimpleTDigest, MovingStatistics, 
 
 
 class MKTrendDetector:
+    def __init__(self, t_digest, quantile_step=5, window_size=100, rel_tol=0.01):
+        self.t_digest = t_digest
+        self.window_size = window_size
+        self.quantile_step = quantile_step
+        self.quantile_probs = [i for i in range(quantile_step, 100, quantile_step)]
+        self.quantile_values = [None] * len(self.quantile_probs)
+        self.S = 0
+        self.Z = 0
+        self.P = 0
+        self.length = 0
+        self.min_samples = len(self.quantile_probs)
+        self.tie_counter = None
+        self.rel_tol = rel_tol
+        self.min_value = None
+        self.max_value = None
 
-    def __init__(self,t_digest, quantile_step = 5):
-        self.t_digest = t_digest;
-        self.quantile_probs = [i for i in range(quantile_step, 100, quantile_step)]  # 0.05, 0.10, ..., 0.95
-        self.quantile_values = [None]*len(self.quantile_probs) 
-        self.length = 0;
-        self.S = 0;
-        self.Z = 0;
-        self.P = 0;
-        self.count_approx =  LossyCounting(epsilon=0.01);
-        self.min_samples = len(self.quantile_probs);
-    
+    def _update_moving_range(self, x):
+        if self.min_value is None or x < self.min_value:
+            self.min_value = x
+        if self.max_value is None or x > self.max_value:
+            self.max_value = x
+        moving_range = self.max_value - self.min_value
+        eps_tie = max(moving_range * self.rel_tol, 1e-8)  # avoid zero
+        if self.tie_counter is None:
+            self.tie_counter = LossyCounting(epsilon=0.1, eps_tie=eps_tie)
+        else:
+            self.tie_counter.eps_tie = eps_tie  # update eps dynamically
 
-
-    def calculate_quantiles_tdigest(self,sample):
-        # First we should get a decent number of samples
-        self.length+= 1;
-
-        self.t_digest.update(sample);
-        
-        # if self.length <= self.min_samples:
-        #     print("Not enough samples for Trend detection");
-        # else:
+    def calculate_quantiles(self, x):
+        self.t_digest.update(x)
         for idx, p in enumerate(self.quantile_probs):
-            self.quantile_values[idx] = self.t_digest.percentile(p);
-    
+            self.quantile_values[idx] = self.t_digest.percentile(p)
 
-
-    def approx_cdf(self, x):     
-        '''
-        Approximate the CDF function, and interpolate. <=>  calculate P(X<= xi) = F(xi)
-        '''     
-
-        ## Extreme cases
+    def approx_cdf(self, x):
         if x <= self.quantile_values[0]:
             return 0.0
         if x >= self.quantile_values[-1]:
             return 1.0
-        
         for i in range(len(self.quantile_values)-1):
             q_i = self.quantile_values[i]
             q_next = self.quantile_values[i+1]
-            p_i = self.quantile_probs[i]
-            p_next = self.quantile_probs[i+1]
-
+            p_i = self.quantile_probs[i] / 100.0
+            p_next = self.quantile_probs[i+1] / 100.0
             if q_i <= x <= q_next:
                 return p_i + (x - q_i)/(q_next - q_i) * (p_next - p_i)
-            
         return 1.0
-    
-
 
     def update(self, x):
-        """
-        Update the online MK statistic with a new value x
-        """
-        # Step 1: update quantiles (may use small history initially)
-        self.calculate_quantiles_tdigest(x);
-        self.count_approx.process_item(x);
-        
-        # Step 2: compute new St by adding the sample contribution to St-1
-        if self.length <= self.min_samples:
-            print("Not enough samples for Trend detection")
-        else:
-            if self.length > 0: 
-                cdf = self.approx_cdf(x)
-                self.S += self.length * (2*cdf - 1)
-    
-        # Step 3: update count (only once)
-        # self.length is already incremented in calculate_quantiles_tdigest
-            
-        
-    def compute_variance_Z(self):
-        # Let's assume no ties.
-        if self.count_approx is not None:
-            ties = self.count_approx.estimated_counts();
-            print("============= Ties ===============", ties); 
-        tie_groups = [tj for tj  in ties.values() if tj > 1];
-        print("============= Tie groups ===============", tie_groups);
-        varS = (self.length*(self.length-1)*(2*self.length+5)
-            - sum(tj*(tj-1)*(2*tj+5) for tj in tie_groups)) / 18
+        # reset window
+        if self.length > 0 and self.length % self.window_size == 0:
+            self.S = 0
+            self.Z = 0
+            self.P = 0
+            self.length = 0
+            self.tie_counter.clear()
+            self.min_value = None
+            self.max_value = None
 
+        self.length += 1
+        self._update_moving_range(x)
+        self.calculate_quantiles(x)
+        self.tie_counter.process_item(x)
+
+        if self.length > self.min_samples:
+            cdf = self.approx_cdf(x)
+            self.S += self.length * (2*cdf - 1)
+
+    def compute_variance_Z(self):
+        n = self.length
+        if n < 2:
+            self.Z = 0
+            return
+        tie_groups = self.tie_counter.tie_groups()
+        varS = (n*(n-1)*(2*n+5) - sum(t*(t-1)*(2*t+5) for t in tie_groups)) / 18.0
+        if varS <= 0:
+            self.Z = 0
+            return
         if self.S > 0:
             self.Z = (self.S - 1) / math.sqrt(varS)
         elif self.S < 0:
             self.Z = (self.S + 1) / math.sqrt(varS)
         else:
-            self.Z = 0.0
-
-
+            self.Z = 0
 
     def p_value(self):
         self.compute_variance_Z()
-        self.P = 2 * (1 - norm.cdf(abs(self.Z)))  # two-sided
+        self.P = 2 * (1 - norm.cdf(abs(self.Z)))
 
-
-
-    def trend(self, alpha=0.05):        
-        self.p_value();
+    def trend(self, alpha=0.05):
+        if self.length <= self.min_samples:
+            return "Not enough samples"
+        self.p_value()
         if self.P < alpha:
-            if self.S > 0:
-                return "Significant increasing trend"
-            else:
-                return "Significant decreasing trend"
-        else:
-            return "No significant trend"
-
-
+            return "Significant increasing trend" if self.S > 0 else "Significant decreasing trend"
+        return "No significant trend"
 
 
 
@@ -263,8 +250,9 @@ class InWindowMKTrendDetector:
                 self.dbWriter.write_trend(last_item, 1, last_item['topic'],self.pt08_s1_co_trend_detector.S);
             elif trend == "Significant decreasing trend":
                 self.dbWriter.write_trend(last_item, -1, last_item['topic'],self.pt08_s1_co_trend_detector.S);
-            elif trend == "No significant trend":
+            else :
                 self.dbWriter.write_trend(last_item, 0, last_item['topic'],self.pt08_s1_co_trend_detector.S);
+            
             
 
             if self.verbose:
@@ -393,7 +381,7 @@ class InWindowMKTrendDetector:
                 self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.pt08_s2_nmhc_trend_detector.S);
             elif trend == "Significant decreasing trend":
                 self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.pt08_s2_nmhc_trend_detector.S);
-            elif trend == "No significant trend":
+            else :
                 self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.pt08_s2_nmhc_trend_detector.S);
 
             if self.verbose:
@@ -479,7 +467,7 @@ class InWindowMKTrendDetector:
                 self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.pt08_s3_nox_trend_detector.S);
             elif trend == "Significant decreasing trend":
                 self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.pt08_s3_nox_trend_detector.S);
-            elif trend == "No significant trend":
+            else :
                 self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.pt08_s3_nox_trend_detector.S);
 
             if self.verbose:
@@ -565,7 +553,7 @@ class InWindowMKTrendDetector:
                 self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.pt08_s4_no2_trend_detector.S);
             elif trend == "Significant decreasing trend":
                 self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.pt08_s4_no2_trend_detector.S);
-            elif trend == "No significant trend":
+            else :
                 self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.pt08_s4_no2_trend_detector.S);
 
             if self.verbose:
@@ -608,7 +596,7 @@ class InWindowMKTrendDetector:
                 self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.pt08_s5_o3_trend_detector.S);
             elif trend == "Significant decreasing trend":
                 self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.pt08_s5_o3_trend_detector.S);
-            elif trend == "No significant trend":
+            else :
                 self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.pt08_s5_o3_trend_detector.S);
 
             if self.verbose:
@@ -651,7 +639,7 @@ class InWindowMKTrendDetector:
                 self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.t_trend_detector.S);
             elif trend == "Significant decreasing trend":
                 self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.t_trend_detector.S);
-            elif trend == "No significant trend":
+            else :
                 self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.t_trend_detector.S);
 
             if self.verbose:
@@ -694,7 +682,7 @@ class InWindowMKTrendDetector:
                 self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.ah_trend_detector.S);
             elif trend == "Significant decreasing trend":
                 self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.ah_trend_detector.S);
-            elif trend == "No significant trend":
+            else :
                 self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.ah_trend_detector.S);
 
             if self.verbose:
@@ -738,7 +726,7 @@ class InWindowMKTrendDetector:
                 self.dbWriter.write_trend(last_item, 1, last_item['topic'], self.rh_trend_detector.S);
             elif trend == "Significant decreasing trend":
                 self.dbWriter.write_trend(last_item, -1, last_item['topic'], self.rh_trend_detector.S);
-            elif trend == "No significant trend":
+            else :
                 self.dbWriter.write_trend(last_item, 0, last_item['topic'], self.rh_trend_detector.S);
 
             if self.verbose:
