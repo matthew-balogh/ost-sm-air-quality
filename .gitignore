@@ -8,6 +8,4 @@ consumer_node/venv
 artifacts
 AirQualityUCI.csv
 \outputs
-*.png
 .env
-*.env

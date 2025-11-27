@@ -2,17 +2,11 @@
 ## Install, "pip install influxdb3-python pandas"
 
 import os
-from influxdb_client_3 import (
-  InfluxDBClient3, InfluxDBError, Point, WritePrecision,
-  WriteOptions, write_client_options)
-
-from datetime import datetime, timedelta
-from listeners.sliding_window_listener import SlidingWindowListener
 
 from dotenv import load_dotenv
-import os
-
 from datetime import datetime
+from influxdb_client_3 import (InfluxDBClient3, InfluxDBError, Point, WriteOptions, write_client_options)
+from listeners.sliding_window_listener import SlidingWindowListener
 
 
 # Load the .env file
@@ -26,19 +20,6 @@ def error(self, data: str, exception: InfluxDBError):
 
 def retry(self, data: str, exception: InfluxDBError):
     print(f"Failed retry writing batch: config: {self}, data: {data} retry: {exception}")
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class DatabaseWriter(SlidingWindowListener):
@@ -59,8 +40,6 @@ class DatabaseWriter(SlidingWindowListener):
                                 token=self.token,
                                 );
         
-
-        
         ## writing options
         self.write_options = WriteOptions(batch_size=500,
                                             flush_interval=10_000,
@@ -69,7 +48,6 @@ class DatabaseWriter(SlidingWindowListener):
                                             max_retries=5,
                                             max_retry_delay=30_000,
                                             exponential_base=2)
-        
                 
         wco = write_client_options(success_callback=success,
                                     error_callback=error,
@@ -147,8 +125,6 @@ class DatabaseWriter(SlidingWindowListener):
                             "global": "global" in types,
                         }, anomalous_sample['key'])
     
-    
-
 
     def write_trend(self, sample, type, topic,S_value):
         '''
@@ -161,7 +137,6 @@ class DatabaseWriter(SlidingWindowListener):
                             "S": S_value,
                             "type": type,
                         }, sample['key'])
-    
 
 
     def write_quantiles(self, quantiles, topic, key):
@@ -170,6 +145,7 @@ class DatabaseWriter(SlidingWindowListener):
                                                       "q1": quantiles['q1'], "median": quantiles['median'],
                                                       "q3": quantiles['q3'], "max": quantiles['max']}, key
                         )
+
 
     def write_moving_statistics(self, stats, topic, key):
 
@@ -193,7 +169,6 @@ class DatabaseWriter(SlidingWindowListener):
         except Exception as e:
             if self.verbose:
                 print(f"Error writing forecasting data for {topic}: {e}")
-
 
 
     def on_new_window_pt08_s1_co(self, data):
@@ -267,7 +242,6 @@ class DatabaseWriter(SlidingWindowListener):
 
     def on_new_window_nox_gt(self, data):
         pass
-    
 
 
     def write_data(self, table_name, tags, fields, Measurement_time):
@@ -330,11 +304,6 @@ class DatabaseWriter(SlidingWindowListener):
             print(f"Point data: measurement={table_name}, tags={tags}, fields={cleaned_fields}, time={unixTime}")
             raise
 
-    
-
-
-
-
 
     def write_prediction(self, topic, preds, Measurement_time):
         """
@@ -362,9 +331,6 @@ class DatabaseWriter(SlidingWindowListener):
         except Exception as e:
             if self.verbose:
                 print(f"Error writing prediction for {topic}: {e}")
-
-
-
 
 
     def _write_value_and_predictions(self, topic, last_item):
@@ -418,12 +384,9 @@ class DatabaseWriter(SlidingWindowListener):
         except Exception as e:
             if self.verbose:
                 print(f"Error fetching/writing predictions for {topic}: {e}")
-    
-
 
 
     def query_data(self,query):
-
         '''
         Query : sql query. 
         returns a table.
@@ -431,9 +394,3 @@ class DatabaseWriter(SlidingWindowListener):
 
         table = self.client.query(query);
         return table;
-    
-
-
-
-
-
