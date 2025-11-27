@@ -9,3 +9,4 @@ artifacts
 AirQualityUCI.csv
 \outputs
 *.png
+.env
