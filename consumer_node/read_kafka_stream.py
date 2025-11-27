@@ -3,6 +3,7 @@ import os
 import sys
 
 from offline_forcasting.offline_forecasting import OfflineForecaster
+from online_forcasting.online_forecasting import OnlineForecaster
 from sensor_topics import SENSOR_TOPICS
 from InfluxDB import InfluxDbUtilities
 from trend_detector.TrendDetector import InWindowMKTrendDetector
@@ -96,6 +97,10 @@ if __name__ == "__main__":
     # Forecaster
     forecaster = OfflineForecaster(verb=False, dbWriter=databaseWriter)
     reader.register_observer(forecaster)
+
+    # Online forecaster
+    online_forecaster = OnlineForecaster(verb=False, dbWriter=databaseWriter)
+    reader.register_observer(online_forecaster)
 
     # Trend detector
     trendDetector = InWindowMKTrendDetector(verbose=False, t_digest_compression_delta=0.06, quantile_step = 5, dbWriter = databaseWriter)
