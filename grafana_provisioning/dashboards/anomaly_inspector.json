@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 0,
   "links": [],
   "panels": [
     {
@@ -182,6 +182,33 @@
                 "value": "Local abnormality"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "Missing values"
+            },
+            "properties": [
+              {
+                "id": "custom.drawStyle",
+                "value": "points"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.pointSize",
+                "value": 6
+              },
+              {
+                "id": "displayName",
+                "value": "Missing value"
+              }
+            ]
           }
         ]
       },
@@ -245,7 +272,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, value\nFROM anomaly\nWHERE topic = '$topic'\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
+          "rawSql": "SELECT time, CASE WHEN value = -200 THEN NULL ELSE value END as value\nFROM anomaly\nWHERE topic = '$topic'\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Anomalies",
           "sql": {
             "columns": [
@@ -274,7 +301,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, value as missing_value\nFROM anomaly\nWHERE topic = '$topic'\n  AND missing = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
+          "rawSql": "SELECT time, TRUE as missing_value\nFROM anomaly\nWHERE topic = '$topic'\n  AND missing = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Missing values",
           "sql": {
             "columns": [
@@ -303,7 +330,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, value as global_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND global = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
+          "rawSql": "SELECT time, CASE WHEN value = -200 THEN NULL ELSE value END as global_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND global = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Global anomalies",
           "sql": {
             "columns": [
@@ -332,7 +359,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, value as local_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND local = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
+          "rawSql": "SELECT time, CASE WHEN value = -200 THEN NULL ELSE value END as local_anomaly\nFROM anomaly\nWHERE topic = '$topic'\n  AND local = 1\n  AND time >= $__timeFrom() AND time <= $__timeTo();",
           "refId": "Local anomalies",
           "sql": {
             "columns": [
@@ -539,8 +566,8 @@
     "list": [
       {
         "current": {
-          "text": "t",
-          "value": "t"
+          "text": "pt08_s3_nox",
+          "value": "pt08_s3_nox"
         },
         "label": "Topic",
         "name": "topic",
@@ -556,7 +583,7 @@
             "value": "pt08_s2_nmhc"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Total Nitrogen Oxides (NOx)",
             "value": "pt08_s3_nox"
           },
@@ -571,7 +598,7 @@
             "value": "pt08_s5_o3"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Temperature",
             "value": "t"
           },
@@ -592,12 +619,12 @@
     ]
   },
   "time": {
-    "from": "2004-07-14T13:43:47.027Z",
-    "to": "2004-07-22T04:54:03.243Z"
+    "from": "2004-07-12T22:00:00.000Z",
+    "to": "2004-07-19T21:59:59.000Z"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Anomaly Inspector",
   "uid": "adt22k7",
-  "version": 9
+  "version": 10
 }
