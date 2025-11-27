@@ -75,37 +75,6 @@ class DatabaseWriter(SlidingWindowListener):
                                     error_callback=error,
                                     retry_callback=retry,
                                     write_options=self.write_options)
-        
-
-
-
-
-
-    def create_all_measurements(self):
-        measurements = ["environment", "anomaly", "trend"]
-        for table_name in measurements:
-            Measurement_time = "01/01/1970 00.00.01"
-            unixTime = int(datetime.strptime(
-                Measurement_time, "%d/%m/%Y %H.%M.%S"
-            ).timestamp() * 1e9)
-
-            dummy_tags = {"init": "true"}
-            dummy_fields = {"dummy_value": 0}
-
-            dummy_point = {
-                "measurement": table_name,
-                "tags": dummy_tags,
-                "fields": dummy_fields,
-                "time": unixTime
-            }
-
-            self.client.write(dummy_point)
-
-        print("Measurements created (dummy rows inserted).")
-    
-
-
-        
 
         # instantiate OfflineForecaster singleton so we can fetch predictions
         OfflineForecaster = None
@@ -141,6 +110,28 @@ class DatabaseWriter(SlidingWindowListener):
         except Exception:
             self.forecaster = None
 
+
+    def create_all_measurements(self):
+        measurements = ["environment", "anomaly", "trend"]
+        for table_name in measurements:
+            Measurement_time = "01/01/1970 00.00.01"
+            unixTime = int(datetime.strptime(
+                Measurement_time, "%d/%m/%Y %H.%M.%S"
+            ).timestamp() * 1e9)
+
+            dummy_tags = {"init": "true"}
+            dummy_fields = {"dummy_value": 0}
+
+            dummy_point = {
+                "measurement": table_name,
+                "tags": dummy_tags,
+                "fields": dummy_fields,
+                "time": unixTime
+            }
+
+            self.client.write(dummy_point)
+
+        print("Measurements created (dummy rows inserted).")
 
 
     def write_anomaly(self, anomalous_sample, types, topic):
