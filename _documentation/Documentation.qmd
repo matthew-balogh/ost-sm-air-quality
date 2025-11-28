@@ -5,6 +5,7 @@ project:
   output-dir: _documentation
 
 toc: true
+toc-depth: 1
 number-sections: true
 
 format:
@@ -23,7 +24,9 @@ format:
 
 **Abstract**
 
-lorem ipsum...
+As smart cities deploy large networks of IoT sensors, the ability to collect, process, store, and interpret unbounded environmental data becomes essential for supporting timely decision-making. In this work, a system that processes IoT sensor data deployed in an Italian city was developed with the objectives to detect abnormal changes in the sensor readings in real-time and to create short-term forecasts to support city planning and public health responses. The sensor data related to air quality was simulated, streamlined, processed, modeled, stored, and visualized to develop a full-stack stream mining data science project powered by open-source technologies.
+
+**TODO: write results & impact for each objective**
 
 
 **Keywords:** *Anomaly detection, Forecasting, Stream mining, Open-source technologies*
@@ -43,10 +46,7 @@ Loubna Seddiki
 
 \newpage
 
-## Introduction
-
-
-## Background and Literature Review
+## Introduction and Background
 
 In stream mining, we are limited to a portion of data and make decisions real-time in memory. As *Wares, Isaacs, and Elyan (2019)* highlight, in traditional machine learning contexts, data is referred to as batch data which can be loaded into memory in its entirety. According to the authors,
 
@@ -54,7 +54,11 @@ In stream mining, we are limited to a portion of data and make decisions real-ti
 
 The authors refer to *Babcock et al. (2002)*, highlighting that
  
- > "once an element from a data stream has been processed, it is discarded or archived. It cannot be retrieved easily unless it is explicitly stored in memory, which is small relative to the size of data streams."
+> "once an element from a data stream has been processed, it is discarded or archived. It cannot be retrieved easily unless it is explicitly stored in memory, which is small relative to the size of data streams."
+
+This nature of streaming systems calls for solutions that support the learning from the unbounded data without relying on stored records for every single measurement. Architectural solutions such as *Kafka*, *Spark*, data storages such as *Influxdb*, and algorithms that iteratively learn from the data are important elements in this context.
+
+**TODO: reference papers and introduce concrete techniques that were utilized in the project**
 
 ## Dataset
 
@@ -160,7 +164,7 @@ The system maintains streaming **Quantile Sketches** (using T-Digest concepts) a
 
 ## Experiments and testing
 
-> TODO: add outputs of anomaly detection
+**TODO: add outputs of anomaly detection**
 
 
 
@@ -172,4 +176,4 @@ Babcock, B., Babu, S., Datar, M., Motwani, R. and Widom, J. (2002, June). Models
 
 Vito, S. (2008) Air Quality Dataset. UCI Machine Learning Repository. Available at: https://archive.ics.uci.edu/ml/datasets/Air+Quality (Accessed: 25 November 2025).
 
-> TODO: reference *T-digest*
+**TODO: reference *T-digest***

@@ -1,33 +1,22 @@
 # Open-source Technologies and Stream Mining joint Project Documentation
 
-
--   [<span class="toc-section-number">1</span>
-    Introduction](#introduction)
--   [<span class="toc-section-number">2</span> Background and Literature
-    Review](#background-and-literature-review)
--   [<span class="toc-section-number">3</span> Dataset](#dataset)
--   [<span class="toc-section-number">4</span> System
-    architecture](#system-architecture)
--   [<span class="toc-section-number">5</span> Modeling and
-    Predictions](#modeling-and-predictions)
-    -   [<span class="toc-section-number">5.1</span>
-        Overview](#overview)
-    -   [<span class="toc-section-number">5.2</span> Anomaly
-        detection](#anomaly-detection)
-    -   [<span class="toc-section-number">5.3</span> Offline
-        forecasting](#offline-forecasting)
-    -   [<span class="toc-section-number">5.4</span> Online
-        forecasting](#online-forecasting)
--   [<span class="toc-section-number">6</span> Experiments and
-    testing](#experiments-and-testing)
--   [<span class="toc-section-number">7</span> References](#references)
-
 *Smart City Air Quality Monitoring with Real-Time Stream Analytics
 (SCAir-IoT)*
 
 **Abstract**
 
-lorem ipsum…
+As smart cities deploy large networks of IoT sensors, the ability to
+collect, process, store, and interpret unbounded environmental data
+becomes essential for supporting timely decision-making. In this work, a
+system that processes IoT sensor data deployed in an Italian city was
+developed with the objectives to detect abnormal changes in the sensor
+readings in real-time and to create short-term forecasts to support city
+planning and public health responses. The sensor data related to air
+quality was simulated, streamlined, processed, modeled, stored, and
+visualized to develop a full-stack stream mining data science project
+powered by open-source technologies.
+
+**TODO: write results & impact for each objective**
 
 **Keywords:** *Anomaly detection, Forecasting, Stream mining,
 Open-source technologies*
@@ -44,9 +33,7 @@ Nagy, Zsuzsanna
 
 Loubna Seddiki
 
-## Introduction
-
-## Background and Literature Review
+## Introduction and Background
 
 In stream mining, we are limited to a portion of data and make decisions
 real-time in memory. As *Wares, Isaacs, and Elyan (2019)* highlight, in
@@ -65,6 +52,15 @@ The authors refer to *Babcock et al. (2002)*, highlighting that
 > discarded or archived. It cannot be retrieved easily unless it is
 > explicitly stored in memory, which is small relative to the size of
 > data streams.”
+
+This nature of streaming systems calls for solutions that support the
+learning from the unbounded data without relying on stored records for
+every single measurement. Architectural solutions such as *Kafka*,
+*Spark*, data storages such as *Influxdb*, and algorithms that
+iteratively learn from the data are important elements in this context.
+
+**TODO: reference papers and introduce concrete techniques that were
+utilized in the project**
 
 ## Dataset
 
@@ -321,7 +317,7 @@ specifically as **online_pred**.
 
 ## Experiments and testing
 
-> TODO: add outputs of anomaly detection
+**TODO: add outputs of anomaly detection**
 
 ## References
 
@@ -338,4 +334,4 @@ Vito, S. (2008) Air Quality Dataset. UCI Machine Learning Repository.
 Available at: https://archive.ics.uci.edu/ml/datasets/Air+Quality
 (Accessed: 25 November 2025).
 
-> TODO: reference *T-digest*
+**TODO: reference *T-digest***
