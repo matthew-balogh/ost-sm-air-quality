@@ -181,7 +181,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n    CASE \r\n    WHEN topic = 't' THEN 'Temperature'\r\n    WHEN topic = 'rh' THEN 'Humidity'\r\n    WHEN topic = 'ah' THEN 'Absolute Humidity'\r\n    WHEN topic = 'co_gt' THEN 'Carbon Monoxide (CO)'\r\n    WHEN topic = 'c6h6_gt' THEN 'Benzene (C6H6)'\r\n    WHEN topic = 'nmhc_gt' THEN 'NMHC'\r\n    WHEN topic = 'no2_gt' THEN 'Nitrogen Dioxide (NO2)'\r\n    WHEN topic = 'nox_gt' THEN 'Nitrogen Oxides (NOx)'\r\n    WHEN topic = 'pt08_s1_co' THEN 'Tin Oxide (CO)'\r\n    WHEN topic = 'pt08_s2_nmhc' THEN 'Titania (NMHC)'\r\n    WHEN topic = 'pt08_s3_nox' THEN 'Tungsten Oxide (NOx)'\r\n    WHEN topic = 'pt08_s4_no2' THEN 'Tungsten Oxide (NO2)'\r\n    WHEN topic = 'pt08_s5_o3' THEN 'Indium Oxide (O3)'\r\n    ELSE topic \r\n  END  as \"Sensor Name\",\r\n  value as \"Total Anomalies\"\r\nFROM anomaly\r\nWHERE global = 1 \r\n  AND $__timeFilter(time)\r\nORDER BY value DESC",
+          "rawSql": "SELECT \r\n    CASE \r\n    WHEN topic = 't' THEN 'Temperature'\r\n    WHEN topic = 'rh' THEN 'Humidity'\r\n    WHEN topic = 'ah' THEN 'Absolute Humidity'\r\n    WHEN topic = 'co_gt' THEN 'Carbon Monoxide (CO)'\r\n    WHEN topic = 'c6h6_gt' THEN 'Benzene (C6H6)'\r\n    WHEN topic = 'nmhc_gt' THEN 'NMHC'\r\n    WHEN topic = 'no2_gt' THEN 'Nitrogen Dioxide (NO2)'\r\n    WHEN topic = 'nox_gt' THEN 'Nitrogen Oxides (NOx)'\r\n    WHEN topic = 'pt08_s1_co' THEN 'Tin Oxide (CO)'\r\n    WHEN topic = 'pt08_s2_nmhc' THEN 'Titania (NMHC)'\r\n    WHEN topic = 'pt08_s3_nox' THEN 'Tungsten Oxide (NOx)'\r\n    WHEN topic = 'pt08_s4_no2' THEN 'Tungsten Oxide (NO2)'\r\n    WHEN topic = 'pt08_s5_o3' THEN 'Indium Oxide (O3)'\r\n    ELSE topic \r\n  END  as \"Sensor Name\",\r\n  value as \"Total Anomalies\"\r\nFROM anomaly\r\nWHERE (global = 1 OR local = 1)\r\n  AND $__timeFilter(time)\r\nORDER BY value DESC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -243,7 +243,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": 0
               },
               {
@@ -816,5 +816,5 @@
   "timezone": "browser",
   "title": "All sensors dashboard",
   "uid": "adk8wt7",
-  "version": 7
+  "version": 8
 }
