@@ -14,16 +14,11 @@ import java.io.InputStream;
 public class Main {
     static String topic = "sensor-data";
     
-    // List of topics based on CSV columns (excluding Date, Time, and empty columns)
+    // List of topics based on CSV columns (excluding Date, Time, empty columns, and columns with "_gt" in name)
     public static final String[] SENSOR_TOPICS = {
-        "co_gt",           // CO(GT)
         "pt08_s1_co",      // PT08.S1(CO)
-        "nmhc_gt",         // NMHC(GT)
-        "c6h6_gt",         // C6H6(GT)
         "pt08_s2_nmhc",    // PT08.S2(NMHC)
-        "nox_gt",          // NOx(GT)
         "pt08_s3_nox",     // PT08.S3(NOx)
-        "no2_gt",          // NO2(GT)
         "pt08_s4_no2",     // PT08.S4(NO2)
         "pt08_s5_o3",      // PT08.S5(O3)
         "t",               // T
@@ -31,16 +26,11 @@ public class Main {
         "ah"               // AH
     };
     
-    // CSV column indices (0-based, excluding Date=0, Time=1, and empty columns at end)
+    // CSV column indices (0-based, excluding Date=0, Time=1, empty columns at end, and columns with "_gt" in name)
     private static final int[] SENSOR_COLUMN_INDICES = {
-        2,   // CO(GT)
         3,   // PT08.S1(CO)
-        4,   // NMHC(GT)
-        5,   // C6H6(GT)
         6,   // PT08.S2(NMHC)
-        7,   // NOx(GT)
         8,   // PT08.S3(NOx)
-        9,   // NO2(GT)
         10,  // PT08.S4(NO2)
         11,  // PT08.S5(O3)
         12,  // T
@@ -49,7 +39,7 @@ public class Main {
     };
     
     public static void main(String[] args) {
-        int skipLines = 3000; // Number of lines to skip
+        int skipLines = 780; // Number of lines to skip
         final String bootstrapServers = System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092");
         
         // Create Kafka topics first
