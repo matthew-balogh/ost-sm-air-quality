@@ -60,11 +60,11 @@ This nature of streaming systems calls for solutions that support the learning f
 
 **TODO: reference papers and introduce concrete techniques that were utilized in the project**
 
+*Müller and Chiu (2024)* introduce a general methodology for detecting novelties in time-series data which was followed in the abnormality (anomaly) detection part of the project.
+
 ## Dataset
 
-The dataset is the *UCI Air Quality* dataset *Vito, S. (2008)* which includes responses of gas sensor devices deployed in an Italian city. Besides these device readings, each gas measurement has a counterpart feature which denotes the gas concentration recorded by a co-located certified analyzer. Additionally, readings related to temperature along with absolute and relative humidity are included in the dataset.
-
-The records span 1 year from March 2004 to February 2025, and present hourly aggregated measurements. Missing values are denoted with the value of `-200`.
+The dataset is the *UCI Air Quality* dataset *Vito, S. (2008)* which includes responses of gas sensor devices deployed in an Italian city. Besides these device readings, each gas measurement has a counterpart feature which denotes the gas concentration recorded by a co-located certified analyzer. Additionally, readings related to temperature along with absolute and relative humidity are included in the dataset. The records span 1 year from March 2004 to February 2025, and present hourly aggregated measurements. Missing values are denoted with the value of `-200`.
 
 \newpage
 ## System architecture
@@ -164,10 +164,19 @@ The system maintains streaming **Quantile Sketches** (using T-Digest concepts) a
 
 ## Experiments and testing
 
+
 **TODO: add outputs of anomaly detection**
 
+High-level and sensor-wise dashboards were created in *Grafana*, while early prototypes were created in *Streamlit* (@fig-dashb-prototype).
+
+The output of online forecasting was plotted along with a live performance evaluation panel including metrics of *Absolute Error (AE)*, *Cumulative Mean Absolute Error (MAE)*, *Squared Error (SE)*, *Cumulative RMSE*, and *Cumulative Bias (mean signed error)* to compare the predicted line against the actual sensor readings in real time. This is displayed in @fig-dashb-forecast.
+
+![Anomaly detector prototype dashboard implemented in *Streamlit*.](../_dashboards/prototypes/protdshb_streamlit_anomaly_inspector.png){#fig-dashb-prototype}
+
+![Predictions and performance evaluation dashboard for forecasting.](../_dashboards/forecasting/dshb_grafana_forecast_evaluation_nox.png){#fig-dashb-forecast}
 
 
+\newpage
 ## References
 
 Wares, S., Isaacs, J. and Elyan, E. (2019). Data stream mining: methods and challenges for handling concept drift. SN Applied Sciences, 1(11), 1412.
@@ -175,5 +184,7 @@ Wares, S., Isaacs, J. and Elyan, E. (2019). Data stream mining: methods and chal
 Babcock, B., Babu, S., Datar, M., Motwani, R. and Widom, J. (2002, June). Models and issues in data stream systems. In Proceedings of the twenty-first ACM SIGMOD-SIGACT-SIGART symposium on Principles of database systems (pp. 1–16).
 
 Vito, S. (2008) Air Quality Dataset. UCI Machine Learning Repository. Available at: https://archive.ics.uci.edu/ml/datasets/Air+Quality (Accessed: 25 November 2025).
+
+Müller, M. and Chiu, C.Y., 2024. A basic tutorial on novelty and activation functions for music signal processing. Transactions of the International Society for Music Information Retrieval, 7(1).
 
 **TODO: reference *T-digest***

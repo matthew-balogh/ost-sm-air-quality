@@ -62,6 +62,10 @@ iteratively learn from the data are important elements in this context.
 **TODO: reference papers and introduce concrete techniques that were
 utilized in the project**
 
+*Müller and Chiu (2024)* introduce a general methodology for detecting
+novelties in time-series data which was followed in the abnormality
+(anomaly) detection part of the project.
+
 ## Dataset
 
 The dataset is the *UCI Air Quality* dataset *Vito, S. (2008)* which
@@ -69,11 +73,10 @@ includes responses of gas sensor devices deployed in an Italian city.
 Besides these device readings, each gas measurement has a counterpart
 feature which denotes the gas concentration recorded by a co-located
 certified analyzer. Additionally, readings related to temperature along
-with absolute and relative humidity are included in the dataset.
-
-The records span 1 year from March 2004 to February 2025, and present
-hourly aggregated measurements. Missing values are denoted with the
-value of `-200`.
+with absolute and relative humidity are included in the dataset. The
+records span 1 year from March 2004 to February 2025, and present hourly
+aggregated measurements. Missing values are denoted with the value of
+`-200`.
 
 ## System architecture
 
@@ -319,6 +322,21 @@ specifically as **online_pred**.
 
 **TODO: add outputs of anomaly detection**
 
+High-level and sensor-wise dashboards were created in *Grafana*, while
+early prototypes were created in *Streamlit*
+(<a href="#fig-dashb-prototype" class="quarto-xref">Figure 1</a>).
+
+The output of online forecasting was plotted along with a live
+performance evaluation panel including metrics of *Absolute Error (AE)*,
+*Cumulative Mean Absolute Error (MAE)*, *Squared Error (SE)*,
+*Cumulative RMSE*, and *Cumulative Bias (mean signed error)* to compare
+the predicted line against the actual sensor readings in real time. This
+is displayed in
+<a href="#fig-dashb-forecast" class="quarto-xref">Figure 2</a>.
+
+![](../_dashboards/prototypes/protdshb_streamlit_anomaly_inspector.png)
+
+![](../_dashboards/forecasting/dshb_grafana_forecast_evaluation_nox.png)
 ## References
 
 Wares, S., Isaacs, J. and Elyan, E. (2019). Data stream mining: methods
@@ -333,5 +351,9 @@ database systems (pp. 1–16).
 Vito, S. (2008) Air Quality Dataset. UCI Machine Learning Repository.
 Available at: https://archive.ics.uci.edu/ml/datasets/Air+Quality
 (Accessed: 25 November 2025).
+
+Müller, M. and Chiu, C.Y., 2024. A basic tutorial on novelty and
+activation functions for music signal processing. Transactions of the
+International Society for Music Information Retrieval, 7(1).
 
 **TODO: reference *T-digest***
