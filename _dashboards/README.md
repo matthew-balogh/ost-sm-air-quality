@@ -13,7 +13,22 @@ Before crafting interactive and sophisticated dashboard designs, prototypes were
 
 # Actual dashboards
 
+
+## All-sensors status
+
+> [!NOTE]
+> TODO
+
+
+## Single-sensor status
+
+> [!NOTE]
+> TODO
+
+
 ## Abnormality (anomaly) inspector
+
+### Predictions
 
 ![](./anomaly_inspector/dshb_grafana_anomaly_inspector_co.png)
 
@@ -30,3 +45,26 @@ Before crafting interactive and sophisticated dashboard designs, prototypes were
 ![](./anomaly_inspector/dshb_grafana_anomaly_inspector_ah.png)
 
 ![](./anomaly_inspector/dshb_grafana_anomaly_inspector_rh.png)
+
+### Performance evaluation
+
+> [!NOTE]
+> TODO
+
+
+## Forecasting
+
+### Predictions
+
+> [!NOTE]
+> TODO
+
+### Performance evaluation
+
+![](./forecasting/dshb_grafana_forecast_evaluation_nox.png)
+
+
+## Trend detection
+
+> [!NOTE]
+> TODO
