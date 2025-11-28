@@ -77,7 +77,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT value as \"${topic} Current Value\"\r\nFROM environment\r\nWHERE topic = '$topic' AND $__timeFilter(time) \r\nORDER BY time DESC\r\nLIMIT 1",
+          "rawSql": "SELECT CASE WHEN value = -200 THEN NULL ELSE value END as \"${topic} Current Value\"\r\nFROM environment\r\nWHERE topic = '$topic' AND $__timeFilter(time) \r\nORDER BY time DESC\r\nLIMIT 1",
           "refId": "A",
           "sql": {
             "columns": [
@@ -755,17 +755,17 @@
           "mappings": [
             {
               "options": {
-                "Value = 0": {
+                "0": {
                   "color": "green",
                   "index": 0,
                   "text": "OK"
                 },
-                "Value = 1 ": {
+                "1": {
                   "color": "dark-orange",
                   "index": 1,
                   "text": "Warning"
                 },
-                "Value = 2": {
+                "2": {
                   "color": "dark-red",
                   "index": 2,
                   "text": "Critical"
@@ -782,14 +782,6 @@
               {
                 "color": "green",
                 "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 1
-              },
-              {
-                "color": "dark-red",
-                "value": 2
               }
             ]
           }
@@ -917,5 +909,5 @@
   "timezone": "browser",
   "title": "Single Sensor Deep Dive",
   "uid": "adjd2m4",
-  "version": 8
+  "version": 9
 }
