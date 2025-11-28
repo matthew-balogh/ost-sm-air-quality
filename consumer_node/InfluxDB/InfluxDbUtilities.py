@@ -288,7 +288,6 @@ class DatabaseWriter(SlidingWindowListener):
         
         unixTime = int(datetime.strptime(Measurement_time, "%d/%m/%Y %H.%M.%S").timestamp() * 1e9);
 
-        print(f"Writing to InfluxDB: measurement={table_name}, tags={tags}, fields={fields}, time={Measurement_time} (unix: {unixTime})")
 
         # Convert string numbers to floats and clean precision
         cleaned_fields = {}
@@ -305,8 +304,6 @@ class DatabaseWriter(SlidingWindowListener):
             else:
                 cleaned_fields[key] = val
 
-        print(f"DEBUG - Cleaned fields: {cleaned_fields}")
-        print(f"DEBUG - Field types: {[(k, type(v).__name__) for k, v in cleaned_fields.items()]}")
 
         try:
             # Use InfluxDB 3 Point API
@@ -326,7 +323,6 @@ class DatabaseWriter(SlidingWindowListener):
             # Debug: print the line protocol
             try:
                 line_protocol = point.to_line_protocol()
-                print(f"DEBUG - Line protocol: {line_protocol}")
             except Exception as lp_error:
                 print(f"DEBUG - Could not generate line protocol: {lp_error}")
             

@@ -394,8 +394,6 @@ class OfflineForecaster(SlidingWindowListener):
                 for target_key in list(self.models.keys()):
                     try:
                         preds = self.predict(target=target_key)
-                        if preds:
-                            print(f'OfflineForecaster: [Periodic] {target_key} -> {preds}')
                     except Exception:
                         if self.verb:
                             print(f'Error predicting {target_key} in periodic loop')
@@ -457,7 +455,6 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s1_co']
         preds = self.predict(target=target_name)
         if preds:
-            print(f"OfflineForecaster: {target_name} -> {preds}")
             self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_pt08_s2_nmhc(self, data):
@@ -471,7 +468,6 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s2_nmhc']
         preds = self.predict(target=target_name)
         if preds:
-            print(f"OfflineForecaster: {target_name} -> {preds}")
             self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_pt08_s3_nox(self, data):
@@ -485,7 +481,6 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s3_nox']
         preds = self.predict(target=target_name)
         if preds:
-            print(f"OfflineForecaster: {target_name} -> {preds}")
             self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_pt08_s4_no2(self, data):
@@ -499,7 +494,6 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s4_no2']
         preds = self.predict(target=target_name)
         if preds:
-            print(f"OfflineForecaster: {target_name} -> {preds}")
             self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_pt08_s5_o3(self, data):
@@ -513,7 +507,6 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['pt08_s5_o3']
         preds = self.predict(target=target_name)
         if preds:
-            print(f"OfflineForecaster: {target_name} -> {preds}")
             self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_t(self, data):
@@ -527,7 +520,6 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['t']
         preds = self.predict(target=target_name)
         if preds:
-            print(f"OfflineForecaster: {target_name} -> {preds}")
             self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_rh(self, data):
@@ -543,7 +535,6 @@ class OfflineForecaster(SlidingWindowListener):
 
         
         if preds:
-            print(f"OfflineForecaster: {target_name} -> {preds}")
             self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
 
     def on_new_window_ah(self, data):
@@ -557,5 +548,4 @@ class OfflineForecaster(SlidingWindowListener):
         target_name = self.TOPIC_TO_COLUMN['ah']
         preds = self.predict(target=target_name)
         if preds:
-            print(f"OfflineForecaster: {target_name} -> {preds}")
             self.dbWriter.write_forecasting_data(target_name, preds, data[-1]['key']);
