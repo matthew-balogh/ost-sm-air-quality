@@ -14,9 +14,11 @@ readings in real-time and to create short-term forecasts to support city
 planning and public health responses. The sensor data related to air
 quality was simulated, streamlined, processed, modeled, stored, and
 visualized to develop a full-stack stream mining data science project
-powered by open-source technologies.
-
-**TODO: write results & impact for each objective**
+powered by open-source technologies. The experiments and evaluation of
+different methods showed that traditional batch-based approaches fail to
+recognize changes in patterns such as trends, seasonality or in
+distinguishing actual anomalies from sudden yet expected spikes and
+drops.
 
 **Keywords:** *Anomaly detection, Forecasting, Stream mining,
 Open-source technologies*
@@ -59,13 +61,6 @@ every single measurement. Architectural solutions such as *Kafka*,
 *Spark*, data storages such as *Influxdb*, and algorithms that
 iteratively learn from the data are important elements in this context.
 
-**TODO: reference papers and introduce concrete techniques that were
-utilized in the project**
-
-*Müller and Chiu (2024)* introduce a general methodology for detecting
-novelties in time-series data which was followed in the abnormality
-(anomaly) detection part of the project.
-
 ## Dataset
 
 The dataset is the *UCI Air Quality* dataset (*Vito, S. (2008)*) which
@@ -78,7 +73,7 @@ records span 1 year from March 2004 to February 2025, and present hourly
 aggregated measurements. Missing values are denoted with the value of
 `-200`.
 
-## System architecture
+## System Architecture
 
 <figure>
 <img src="../_images/architecture_design.png"
@@ -105,28 +100,28 @@ sensor data.
 topics in their datetime order. *Apache Kafka* serves as a distributed
 event streaming platform that provides high-throughput, low-latency data
 feeds with built-in fault tolerance through data replication across
-brokers (*Apache Kafka Documentation*). The producer component, implemented
-in Java, publishes sensor measurements to topic-partitioned streams,
-ensuring that each sensor type (e.g., CO, NOx, temperature) is routed to
-its dedicated topic. This design enables parallel processing and maintains
-temporal ordering of measurements through the use of datetime-based keys,
-which guarantees that messages with the same timestamp are processed
-consistently across the distributed system.
+brokers (*Apache Kafka Documentation*). The producer component,
+implemented in Java, publishes sensor measurements to topic-partitioned
+streams, ensuring that each sensor type (e.g., CO, NOx, temperature) is
+routed to its dedicated topic. This design enables parallel processing
+and maintains temporal ordering of measurements through the use of
+datetime-based keys, which guarantees that messages with the same
+timestamp are processed consistently across the distributed system.
 
 **PySpark consumer**: Listens to the streamlined data and creates mini
 batches to call analytical functions—such as Anomaly Detection and
 Forecasting—on this windowed data. The consumer leverages *PySpark
 Structured Streaming*, which provides a high-level API for processing
 continuous data streams with exactly-once semantics and fault tolerance
-(*Apache Spark Documentation*). The integration between Kafka and PySpark
-is achieved through Spark's native Kafka connector, which allows seamless
-reading from multiple Kafka topics in parallel. The consumer implements a
-sliding window mechanism that buffers incoming messages per sensor topic
-(default window size of 8 samples) and triggers analytical computations
-whenever a new batch arrives. This micro-batch processing model, as
-described by *Zaharia et al. (2016)*, enables real-time analytics while
-maintaining the benefits of batch processing for complex machine learning
-operations.
+(*Apache Spark Documentation*). The integration between Kafka and
+PySpark is achieved through Spark’s native Kafka connector, which allows
+seamless reading from multiple Kafka topics in parallel. The consumer
+implements a sliding window mechanism that buffers incoming messages per
+sensor topic (default window size of 8 samples) and triggers analytical
+computations whenever a new batch arrives. This micro-batch processing
+model, as described by *Zaharia et al. (2016)*, enables real-time
+analytics while maintaining the benefits of batch processing for complex
+machine learning operations.
 
 **Influxdb:** Data is then persisted in the database including the
 online predictions and the original incoming data.
@@ -157,7 +152,8 @@ recognizing sensor readings with missing measurement to detecting local
 and global outliers, in each sensor seperately.
 
 Both, local and global approaches were developed with the general
-novelty, outlier detection methodology in mind, where the steps are:
+novelty, outlier detection methodology (*Müller and Chiu (2024)*) in
+mind, where the steps are:
 
 1.  Transform the data, to better reflect properties of interest
 2.  Obtain a novelty function
@@ -189,7 +185,7 @@ sample. The algorithm maintains a centroid-based representation about
 these statistics using the incoming data and updates its state through
 merges.
 
-### Offline forecasting
+### Offline Forecasting
 
 The offline forecasting module represents a traditional Supervised
 Machine Learning pipeline where models are trained on historical
@@ -263,7 +259,7 @@ against actual incoming values.
     ensure stronger consistency between the training notebook and the
     inference script.
 
-### Online forecasting
+### Online Forecasting
 
 The **Online Forecasting** module, implemented in
 **online_forcasting/online_forecasting.py**, addresses the limitations
@@ -338,105 +334,144 @@ specifically as **online_pred**.
     models with different learning rates (e.g., one “fast” learner and
     one “slow” learner) to balance stability and adaptability.
 
+## Distribution Estimation
 
+To efficiently estimate the distribution of streaming data, we use
+**t-digest** *Dunning, T., Ertl, O. (2021)*, an online algorithm
+optimized for accurate quantile estimation with limited memory. Instead
+of storing all incoming observations, t-digest compresses the data into
+a set of **centroids**, each representing a cluster of nearby values.
 
+t-digest is governed by a **compression parameter** *δ*, which controls
+the maximum number of centroids maintained in the structure. A higher
+compression value results in more centroids and therefore higher
+quantile accuracy—particularly near the tails of the distribution—at the
+cost of increased memory usage. Lower compression values produce a more
+compact summary but with reduced precision.
 
-### Distribution estimation
+As new data points arrive, t-digest incrementally updates or merges
+centroids according to the compression constraint, ensuring the digest
+remains small and efficient. This allows real-time estimation of
+quantiles and other distributional properties without storing the entire
+dataset.
 
-To efficiently estimate the distribution of streaming data, we use **t-digest**, an online algorithm optimized for accurate quantile estimation with limited memory. Instead of storing all incoming observations, t-digest compresses the data into a set of **centroids**, each representing a cluster of nearby values.
+t-digest is thus well-suited for monitoring evolving data streams,
+detecting changes in distribution behavior, and enabling data-driven
+decisions in systems where memory and computation are constrained.
 
-t-digest is governed by a **compression parameter** `δ`, which controls the maximum number of centroids maintained in the structure. A higher compression value results in more centroids and therefore higher quantile accuracy, particularly near the tails of the distribution, at the cost of slightly increased memory usage. Lower compression values produce a more compact summary but with reduced precision.
+## Trend Analysis
 
-As new data points arrive, t-digest incrementally updates or merges centroids according to the compression constraint, ensuring the digest remains small and efficient. This allows real-time estimation of quantiles and other distributional properties without needing to store the entire dataset.
+For trend analysis, we adopt an approximative variant of the
+**Mann–Kendall (MK) test** *Kamal, N., & Pachauri, S. (n.d.)*, a
+**non-parametric statistical test** used to detect the presence of a
+**monotonic trend** (increasing or decreasing) in a time series.
 
-t-digest is thus well-suited for monitoring evolving data streams, detecting changes in distribution behavior, and enabling data-driven decisions in systems where memory and computation are constrained.
+### Hypotheses
 
-### Trend Analysis
+<table>
+<colgroup>
+<col style="width: 47%" />
+<col style="width: 52%" />
+</colgroup>
+<thead>
+<tr>
+<th>Hypothesis</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><span class="math inline"><em>H</em><sub>0</sub></span>
+(Null)</strong></td>
+<td>There is <strong>no monotonic trend</strong> in the time
+series.</td>
+</tr>
+<tr>
+<td><strong><span
+class="math inline"><em>H</em><sub><em>a</em></sub></span>
+(Alternative)</strong></td>
+<td>One of the following: <br> 1. <strong>Upward trend</strong> <br> 2.
+<strong>Downward trend</strong> <br> 3. <strong>Either
+trend</strong></td>
+</tr>
+</tbody>
+</table>
 
-For Trend analysis we adopted an approximative variant of Mann-Kendall (MK) test, which is a **non-parametric statistical test** used to detect the presence of a **monotonic trend** (increasing or decreasing) in a given time series.
+### Why Mann–Kendall?
 
----
-#### Hypotheses
+-   **Robust to missing data:** Missing points only reduce the sample
+    size, which may affect significance but does not invalidate the
+    test. In our data, some features have many missing measurements.
+-   **Distribution free:** The test does not assume any specific
+    probability distribution, which is unknown in streaming data.
 
-| Hypothesis | Description |
-|------------|-------------|
-| **H₀ (Null)** | There is **no monotonic trend** in the time series. |
-| **Hₐ (Alternative)** | One of the following: <br> 1. **Upward monotonic trend** <br> 2. **Downward monotonic trend** <br> 3. **Either upward or downward trend** |
+### Online Mann–Kendall Adaptation
 
----
-### Why Mann Kandall?
+#### Approximating the Sign Function
 
-- **Robust to missing data:** Missing points only reduce the sample size, which might affect statistical significance but does not invalidate the test, As in our data some features have a lot of missing measurements. 
-- **No distributional assumption:** The test does not require the data to follow any specific probability distribution, which is unkown in our streaming data.  
+Traditional MK computes:
 
-### Mann Kandall adaptation
-#### 1. Approximating the Sign Function
-Traditional MK relies on the sign function:
-
-$$
-S = \sum_{i<j} \text{sgn}(x_j - x_i)
-$$
+*S* = ∑<sub>*i* \< *j*</sub>sgn (*x*<sub>*j*</sub> − *x*<sub>*i*</sub>)
 
 In our online version:
 
-- The **sign function is approximated using the CDF** of the current data, maintained via a **t-Digest**.  
-Intuitively, knowing the $𝑋\%$ quantiles provides information about the relative position of values in the distribution. For example, if a sample lies in the $7\%$ quantile, we can infer that it is smaller than a sample lying in the $15\%$ quantile.
-- Approximation formula:
+-   The **sign function is approximated using the CDF** of the current
+    data, maintained via a **t-digest**.
+-   Quantile information yields an approximate ordering. For example, a
+    value at the 7% quantile is likely smaller than one at the 15%
+    quantile.
+
+Approximation:
+
+sgn (*x*<sub>*j*</sub> − *x*<sub>*i*</sub>) ≈ 2 ⋅ CDF(*x*<sub>*j*</sub>) − 1
+
+This reduces computation and memory while preserving the ordering
+structure.
+
+#### Handling Ties
+
+Sensor data resides in continuous space, and features vary in scale. To
+adapt MK for this scenario:
+
+-   A **dynamic tolerance** *ϵ*<sub>tie</sub> based on the **moving
+    range** ensures robust tie handling:
+
+*ϵ*<sub>tie</sub> = max (moving range ⋅ rel_tol, 10<sup>−8</sup>)
+
+-   Tie counts adjust the variance term. A **lossy counting** *Manku, G.
+    S., & Motwani, R. (2002)* strategy tracks frequencies efficiently.
+
+#### Variance and Trend Significance
+
+Variance of *S* accounting for ties:
+
 $$
-\text{sgn}(x_j - x_i) \approx 2 \cdot \text{CDF}(x_j) - 1
+Var(S) = \frac{n (n-1) (2 n + 5) - \sum t (t-1) (2 t + 5)}{18}
 $$
 
-- This reduces computation and memory requirements while retaining accuracy.
-
-#### 2. Handling Ties
-Our sensor data lies in a continuous space where the features have different scales. For a better and accurate results, we have made some changes to adapt our algorithm to the online continuous scenario.
-
-- Ties occur when values are equal or nearly equal.  
-- A **dynamic margin** (`eps_tie`) based on the **moving range** of observed data ensures proper tie handling by taking into consideration the different features' scales:
-
-$$
-\epsilon_{\text{tie}} = \max(\text{moving range} \cdot \text{rel\_tol}, 10^{-8})
-$$
-
-- Tie counts are used to adjust the variance in statistical calculations, Lossy count was used to calculate the frequency.
-
-
-#### 3. Variance and Trend Significance
-- Variance of `S` accounts for tied groups:
-
-$$
-\text{Var}(S) = \frac{n(n-1)(2n+5) - \sum t(t-1)(2t+5)}{18}
-$$
-
-- Z-score and p-value are computed in real-time:
-
+Real-time Z-score:
 $$
 Z =
-\begin{cases} 
-\dfrac{S-1}{\sqrt{\text{Var}(S)}} & S>0 \\
-\dfrac{S+1}{\sqrt{\text{Var}(S)}} & S<0 \\
-0 & S=0
+\begin{cases}
+(S-1)/\sqrt{Var(S)}, & \text{if } S \> 0 \\
+(S+1)/\sqrt{Var(S)}, & \text{if } S \< 0 \\
+0, & \text{if } S = 0
 \end{cases}
 $$
 
-- Trend is classified as:
-  - Significant increasing trend  
-  - Significant decreasing trend  
-  - No significant trend  
+Trend classification:
 
----
+-   **Significant increasing trend**
+-   **Significant decreasing trend**
+-   **No significant trend**
 
-
-
-## Experiments and testing
-
-### Anomaly detection
+## Experiments and Testing
 
 High-level and sensor-wise dashboards were created in *Grafana*, while
 early prototypes were created in *Streamlit*
 (<a href="#fig-dashb-prototype" class="quarto-xref">Figure 1</a>).
 
-![](../_dashboards/prototypes/protdshb_streamlit_anomaly_inspector.png)
+### Anomaly detection
 
 For anomaly detection, markers with different colors were used for the
 global and local abnormal detections, along with the highlights of
@@ -445,35 +480,29 @@ this dashboard is displayed in
 <a href="#fig-dashb-abnormality" class="quarto-xref">Figure 2</a> -
 <a href="#fig-dashb-missing" class="quarto-xref">Figure 3</a>.
 
-![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_co.png)
-
-![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_co_missing_values.png)
-
 The dataset did not contain ground truth for anomalies. To see how these
 detectors perform in terms of positive predictive capability, the
 following manual labeling process was followed:
 
 1.  Designate the rush hour segment (6-10 AM) in each day in an entire
     month from the static dataset
-2.  Combine the sensor readings in that period
+2.  Combine the sensor readings in those segments
 3.  Apply outlier detection (`LOF`) on this subset of data to obtain
     observations that occur rarely and does not align with normal
-    patterns of these segments
+    patterns of the segments
 4.  Label these observations as anomalies
 5.  Evaluate whether local and global abnormality detectors can recall
-    these special anomalies or not
+    these special anomalies
 
 As we can see in
 <a href="#fig-dashb-anomaly-evaluation" class="quarto-xref">Figure 4</a>,
 the in-window and global abnormality detectors were able to recall only
-a few of these special anomalies and predict substantially more abnormal
-cases. One reason might be that these detectors cannot recognize the
-seasonality and reoccuring peaks within a segment of each day throughout
-a month. A refinement may involve more advanced anomaly detection
-mechanisms or creating separate global models for each segment of
-interest.
-
-![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_evaluation_co.png)
+a few of these special anomalies and predict substantially more cases as
+abnormal. One reason might be that these detectors cannot recognize the
+seasonality, the reoccuring peaks within a segment of each day
+throughout a month. A refinement may involve the utilization of more
+advanced anomaly detection algorithms or creating separate global models
+for each segment of interest.
 
 ### Forecasting
 
@@ -483,16 +512,106 @@ performance evaluation panel including metrics of *Absolute Error (AE)*,
 *Cumulative RMSE*, and *Cumulative Bias (mean signed error)* to compare
 the predicted line against the actual sensor readings in real time. This
 is displayed in
-<a href="#fig-dashb-forecast" class="quarto-xref">Figure 5</a>.
-
-![](../_dashboards/forecasting/dshb_grafana_forecast_evaluation_nox.png)
+<a href="#fig-dashb-forecast" class="quarto-xref">Figure 5</a>, while
+comparison of offline and online forecasting is shown in
+<a href="#fig-dashb-forecast-all" class="quarto-xref">Figure 6</a>.
 
 ### Trend Analysis
 
-We applied the Mann–Kendall trend detector to visualize the types of trends present in the data stream. These trend indicators were plotted together with key distributional statistics, such as quantiles, mean, and variance, to provide a comprehensive overview of the data behavior. When a trend occurs, distributional characteristics often evolve: the mean may shift, the variance may increase or decrease depending on the trend’s direction and magnitude, and the quantiles may move, indicating systematic changes across different portions of the distribution. The resulting dashboard supports real-time tracking of these distributional shifts and facilitates the early detection of potential trends within the data stream.
+We applied the Mann–Kendall trend detector to visualize the types of
+trends present in the data stream. These trend indicators were plotted
+together with key distributional statistics, such as quantiles, mean,
+and variance, to provide a comprehensive overview of the data behavior.
+When a trend occurs, distributional characteristics often evolve: the
+mean may shift, the variance may increase or decrease depending on the
+trend’s direction and magnitude, and the quantiles may move, indicating
+systematic changes across different portions of the distribution. The
+resulting dashboard supports real-time tracking of these distributional
+shifts and facilitates the early detection of potential trends within
+the data stream. The related dashboard is depicted in
+<a href="#fig-trend" class="quarto-xref">Figure 7</a>.
+
+### Overview Dashboards
+
+This dashboard acts as the primary observability layer for the SCAir-IoT
+project, aggregating data from the entire sensor network to provide
+high-level situational awareness.
+
+For real-time system status, the System Overview panel utilizes gauge
+visualizations to display the most recent readings. It includes
+environmental factors and key pollutants, allowing users to instantly
+assess if current values are within expected physical ranges.
+
+The Anomaly Detection & Monitoring section visualizes the outputs of the
+stream mining algorithms through two key components. A summary panel,
+‘Sensors by Anomaly Count’, highlights the total number of anomalies
+detected per sensor in the given time window. Alongside this, the
+‘Anomaly Matrix’ serves as a state timeline that temporally tracks the
+two distinct detection strategies described in the modelling section:
+“global” outliers and “local” in-window spikes. Red blocks within this
+heatmap indicate detected anomalies.
+
+The Global Trends section features a multi-line time series chart that
+aggregates the mean values of all sensors, visualizing daily pollution
+cycles and long-term trends.
+
+The correlation dashboards are helping to analyze physical and chemical
+relationships to validate sensor consistency: The “Weather Dynamics”
+chart reveals an inverse pattern where relative humidity drops as
+temperature rises. This confirms the meteorological principle that
+warmer air holds more water vapor. Significant divergences from this
+trend can serve as early indicators for potential sensor faults.
+
+The scatter plot demonstrates a strong linear relationship between
+Carbon Monoxide (CO) and Nitrogen Oxides (NOx). Their values are rising
+and falling simultaneously. This clustering confirms a shared emission
+source, as both pollutants are primary byproducts of combustion engines
+and fluctuate instantly with traffic flow.
+
+The Single Sensor Deep Dive dashboard provides an analysis of individual
+data streams, allowing users to dynamically select specific sensors via
+the Topic variable. It focuses on validating the statistical modelling
+and anomaly detection logic.
+
+The dashboard also visualizes the stochastic properties of the data
+stream. It compares actual readings against calculated Moving Averages
+and Standard Deviation bands (upper/lower bounds) to visually identify
+outliers. A Data Distribution chart plots the current value against
+dynamic quantiles (Min, Q1, Median, Q3, Max), offering a visual
+representation of the T-digest and IQR-based algorithms used for outlier
+detection.
+
+The Sensor Health Status timeline tracks specific error states,
+differentiating between “Data Missing” events and algorithmic “Anomaly
+Status” flags, while a Frequency Histogram analyzes the distribution of
+incoming values to detect skewness or sensor drift.
+
+The related dashboards are depicted in
+<a href="#fig-dashb-all_sensors_1" class="quarto-xref">Figure 8</a>,
+<a href="#fig-dashb-all_sensors_2" class="quarto-xref">Figure 9</a>, and
+<a href="#fig-dashb-single_sensor" class="quarto-xref">Figure 10</a>.
+
+## Appendix
+
+![](../_dashboards/prototypes/protdshb_streamlit_anomaly_inspector.png)
+
+![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_co.png)
+
+![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_co_missing_values.png)
+
+![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_evaluation_co.png)
+
+![](../_dashboards/forecasting/dshb_grafana_forecast_evaluation_nox.png)
+
+![](../_dashboards/forecasting/dshb_grafana_forecast_evaluation_all_nox.png)
 
 ![](../_dashboards/trendanalysis/Overview.png)
 
+![](../grafana_provisioning/images/all_sensors_dashboard_1.png)
+
+![](../grafana_provisioning/images/all_sensors_dashboard_2.png)
+
+![](../grafana_provisioning/images/single_sensor_general.png)
 ## References
 
 Wares, S., Isaacs, J. and Elyan, E. (2019). Data stream mining: methods
@@ -512,16 +631,26 @@ Müller, M. and Chiu, C.Y., 2024. A basic tutorial on novelty and
 activation functions for music signal processing. Transactions of the
 International Society for Music Information Retrieval, 7(1).
 
-Kamal, N., & Pachauri, S. (n.d.). Mann-Kendall Test – A Novel Approach for Statistical Trend Analysis. Faculty of Computing and Information Technology, Himalayan University, Arunachal Pradesh; Department of CSE/IT, IIMT College of Engineering, Greater Noida, U.P.
+Apache Kafka Documentation. Available at:
+https://kafka.apache.org/documentation/ (Accessed: 25 November 2025).
 
-Dunning, T., & Ertl, O. (2021). Computing extremely accurate quantiles using t-digests. MapR Technologies, Inc., Santa Clara, CA; Dynatrace, Linz, Austria.
+Apache Spark Documentation. Structured Streaming Programming Guide.
+Available at: https://spark.apache.org/docs/latest/streaming/index.html
+(Accessed: 25 November 2025).
 
-Manku, G. S., & Motwani, R. (2002). Approximate frequency counts over data streams. Stanford University.
+Zaharia, M., Das, T., Li, H., Hunter, T., Shenker, S., & Stoica, I.
+(2016). Discretized streams: Fault-tolerant streaming computation at
+scale. In Proceedings of the 24th ACM Symposium on Operating Systems
+Principles (pp. 423-438).
 
-Apache Kafka Documentation. Available at: https://kafka.apache.org/documentation/ (Accessed: 25 November 2025).
+Kamal, N., & Pachauri, S. (n.d.). Mann-Kendall Test – A Novel Approach
+for Statistical Trend Analysis. Faculty of Computing and Information
+Technology, Himalayan University, Arunachal Pradesh; Department of
+CSE/IT, IIMT College of Engineering, Greater Noida, U.P.
 
-Apache Spark Documentation. Structured Streaming Programming Guide. Available at: https://spark.apache.org/docs/latest/streaming/index.html (Accessed: 25 November 2025).
+Dunning, T., & Ertl, O. (2021). Computing extremely accurate quantiles
+using t-digests. MapR Technologies, Inc., Santa Clara, CA; Dynatrace,
+Linz, Austria.
 
-Zaharia, M., Das, T., Li, H., Hunter, T., Shenker, S., & Stoica, I. (2016). Discretized streams: Fault-tolerant streaming computation at scale. In Proceedings of the 24th ACM Symposium on Operating Systems Principles (pp. 423-438).
-
-**TODO: reference *T-digest***
+Manku, G. S., & Motwani, R. (2002). Approximate frequency counts over
+data streams. Stanford University.
