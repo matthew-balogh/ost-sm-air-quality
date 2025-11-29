@@ -64,7 +64,7 @@ This nature of streaming systems calls for solutions that support the learning f
 
 ## Dataset
 
-The dataset is the *UCI Air Quality* dataset *Vito, S. (2008)* which includes responses of gas sensor devices deployed in an Italian city. Besides these device readings, each gas measurement has a counterpart feature which denotes the gas concentration recorded by a co-located certified analyzer. Additionally, readings related to temperature along with absolute and relative humidity are included in the dataset. The records span 1 year from March 2004 to February 2025, and present hourly aggregated measurements. Missing values are denoted with the value of `-200`.
+The dataset is the *UCI Air Quality* dataset (*Vito, S. (2008)*) which includes responses of gas sensor devices deployed in an Italian city. Besides these device readings, each gas measurement has a counterpart feature which denotes the gas concentration recorded by a co-located certified analyzer. Additionally, readings related to temperature along with absolute and relative humidity are included in the dataset. The records span 1 year from March 2004 to February 2025, and present hourly aggregated measurements. Missing values are denoted with the value of `-200`.
 
 \newpage
 ## System architecture
