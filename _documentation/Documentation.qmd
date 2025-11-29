@@ -162,16 +162,36 @@ The system maintains streaming **Quantile Sketches** (using T-Digest concepts) a
 
 - **Ensembling:** Creating a weighted ensemble of several online models with different learning rates (e.g., one "fast" learner and one "slow" learner) to balance stability and adaptability.
 
+
 ## Experiments and testing
 
-
-**TODO: add outputs of anomaly detection**
+### Anomaly detection
 
 High-level and sensor-wise dashboards were created in *Grafana*, while early prototypes were created in *Streamlit* (@fig-dashb-prototype).
 
-The output of online forecasting was plotted along with a live performance evaluation panel including metrics of *Absolute Error (AE)*, *Cumulative Mean Absolute Error (MAE)*, *Squared Error (SE)*, *Cumulative RMSE*, and *Cumulative Bias (mean signed error)* to compare the predicted line against the actual sensor readings in real time. This is displayed in @fig-dashb-forecast.
-
 ![Anomaly detector prototype dashboard implemented in *Streamlit*.](../_dashboards/prototypes/protdshb_streamlit_anomaly_inspector.png){#fig-dashb-prototype}
+
+For anomaly detection, markers with different colors were used for the global and local abnormal detections, along with the highlights of missing values, plotted over the actual sensor readings. Examples of this dashboard is displayed in @fig-dashb-abnormality - @fig-dashb-missing.
+
+![Abnormality detection dashboard.](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_co.png){#fig-dashb-abnormality}
+
+![Abnormality detection dashboard (missing values).](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_co_missing_values.png){#fig-dashb-missing}
+
+The dataset did not contain ground truth for anomalies. To see how these detectors perform in terms of positive predictive capability, the following manual labeling process was followed:
+
+1. Designate the rush hour segment (6-10 AM) in each day in an entire month from the static dataset
+2. Combine the sensor readings in that period
+3. Apply outlier detection (`LOF`) on this subset of data to obtain observations that occur rarely and does not align with normal patterns of these segments
+4. Label these observations as anomalies
+5. Evaluate whether local and global abnormality detectors can recall these special anomalies or not
+
+As we can see in @fig-dashb-anomaly-evaluation, the in-window and global abnormality detectors were able to recall only a few of these special anomalies and predict substantially more abnormal cases. One reason might be that these detectors cannot recognize the seasonality and reoccuring peaks within a segment of each day throughout a month. A refinement may involve more advanced anomaly detection mechanisms or creating separate global models for each segment of interest.
+
+![Abnormality detection dashboard.](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_evaluation_co.png){#fig-dashb-anomaly-evaluation}
+
+### Forecasting
+
+The output of online forecasting was plotted along with a live performance evaluation panel including metrics of *Absolute Error (AE)*, *Cumulative Mean Absolute Error (MAE)*, *Squared Error (SE)*, *Cumulative RMSE*, and *Cumulative Bias (mean signed error)* to compare the predicted line against the actual sensor readings in real time. This is displayed in @fig-dashb-forecast.
 
 ![Predictions and performance evaluation dashboard for forecasting.](../_dashboards/forecasting/dshb_grafana_forecast_evaluation_nox.png){#fig-dashb-forecast}
 

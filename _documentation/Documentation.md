@@ -320,11 +320,52 @@ specifically as **online_pred**.
 
 ## Experiments and testing
 
-**TODO: add outputs of anomaly detection**
+### Anomaly detection
 
 High-level and sensor-wise dashboards were created in *Grafana*, while
 early prototypes were created in *Streamlit*
 (<a href="#fig-dashb-prototype" class="quarto-xref">Figure 1</a>).
+
+![](../_dashboards/prototypes/protdshb_streamlit_anomaly_inspector.png)
+
+For anomaly detection, markers with different colors were used for the
+global and local abnormal detections, along with the highlights of
+missing values, plotted over the actual sensor readings. Examples of
+this dashboard is displayed in
+<a href="#fig-dashb-abnormality" class="quarto-xref">Figure 2</a> -
+<a href="#fig-dashb-missing" class="quarto-xref">Figure 3</a>.
+
+![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_co.png)
+
+![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_co_missing_values.png)
+
+The dataset did not contain ground truth for anomalies. To see how these
+detectors perform in terms of positive predictive capability, the
+following manual labeling process was followed:
+
+1.  Designate the rush hour segment (6-10 AM) in each day in an entire
+    month from the static dataset
+2.  Combine the sensor readings in that period
+3.  Apply outlier detection (`LOF`) on this subset of data to obtain
+    observations that occur rarely and does not align with normal
+    patterns of these segments
+4.  Label these observations as anomalies
+5.  Evaluate whether local and global abnormality detectors can recall
+    these special anomalies or not
+
+As we can see in
+<a href="#fig-dashb-anomaly-evaluation" class="quarto-xref">Figure 4</a>,
+the in-window and global abnormality detectors were able to recall only
+a few of these special anomalies and predict substantially more abnormal
+cases. One reason might be that these detectors cannot recognize the
+seasonality and reoccuring peaks within a segment of each day throughout
+a month. A refinement may involve more advanced anomaly detection
+mechanisms or creating separate global models for each segment of
+interest.
+
+![](../_dashboards/anomaly_inspector/dshb_grafana_anomaly_inspector_evaluation_co.png)
+
+### Forecasting
 
 The output of online forecasting was plotted along with a live
 performance evaluation panel including metrics of *Absolute Error (AE)*,
@@ -332,9 +373,7 @@ performance evaluation panel including metrics of *Absolute Error (AE)*,
 *Cumulative RMSE*, and *Cumulative Bias (mean signed error)* to compare
 the predicted line against the actual sensor readings in real time. This
 is displayed in
-<a href="#fig-dashb-forecast" class="quarto-xref">Figure 2</a>.
-
-![](../_dashboards/prototypes/protdshb_streamlit_anomaly_inspector.png)
+<a href="#fig-dashb-forecast" class="quarto-xref">Figure 5</a>.
 
 ![](../_dashboards/forecasting/dshb_grafana_forecast_evaluation_nox.png)
 ## References
