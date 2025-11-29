@@ -102,11 +102,31 @@ quality.
 sensor data.
 
 **Kafka producer**: Streamlines the simulated sensor data into Kafka
-topics in their datetime order.
+topics in their datetime order. *Apache Kafka* serves as a distributed
+event streaming platform that provides high-throughput, low-latency data
+feeds with built-in fault tolerance through data replication across
+brokers (*Apache Kafka Documentation*). The producer component, implemented
+in Java, publishes sensor measurements to topic-partitioned streams,
+ensuring that each sensor type (e.g., CO, NOx, temperature) is routed to
+its dedicated topic. This design enables parallel processing and maintains
+temporal ordering of measurements through the use of datetime-based keys,
+which guarantees that messages with the same timestamp are processed
+consistently across the distributed system.
 
 **PySpark consumer**: Listens to the streamlined data and creates mini
 batches to call analytical functions—such as Anomaly Detection and
-Forecasting—on this windowed data.
+Forecasting—on this windowed data. The consumer leverages *PySpark
+Structured Streaming*, which provides a high-level API for processing
+continuous data streams with exactly-once semantics and fault tolerance
+(*Apache Spark Documentation*). The integration between Kafka and PySpark
+is achieved through Spark's native Kafka connector, which allows seamless
+reading from multiple Kafka topics in parallel. The consumer implements a
+sliding window mechanism that buffers incoming messages per sensor topic
+(default window size of 8 samples) and triggers analytical computations
+whenever a new batch arrives. This micro-batch processing model, as
+described by *Zaharia et al. (2016)*, enables real-time analytics while
+maintaining the benefits of batch processing for complex machine learning
+operations.
 
 **Influxdb:** Data is then persisted in the database including the
 online predictions and the original incoming data.
@@ -485,5 +505,11 @@ Kamal, N., & Pachauri, S. (n.d.). Mann-Kendall Test – A Novel Approach for Sta
 Dunning, T., & Ertl, O. (2021). Computing extremely accurate quantiles using t-digests. MapR Technologies, Inc., Santa Clara, CA; Dynatrace, Linz, Austria.
 
 Manku, G. S., & Motwani, R. (2002). Approximate frequency counts over data streams. Stanford University.
+
+Apache Kafka Documentation. Available at: https://kafka.apache.org/documentation/ (Accessed: 25 November 2025).
+
+Apache Spark Documentation. Structured Streaming Programming Guide. Available at: https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html (Accessed: 25 November 2025).
+
+Zaharia, M., Das, T., Li, H., Hunter, T., Shenker, S., & Stoica, I. (2016). Discretized streams: Fault-tolerant streaming computation at scale. In Proceedings of the 24th ACM Symposium on Operating Systems Principles (pp. 423-438).
 
 **TODO: reference *T-digest***
