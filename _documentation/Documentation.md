@@ -68,7 +68,7 @@ novelties in time-series data which was followed in the abnormality
 
 ## Dataset
 
-The dataset is the *UCI Air Quality* dataset *Vito, S. (2008)* which
+The dataset is the *UCI Air Quality* dataset (*Vito, S. (2008)*) which
 includes responses of gas sensor devices deployed in an Italian city.
 Besides these device readings, each gas measurement has a counterpart
 feature which denotes the gas concentration recorded by a co-located

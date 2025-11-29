@@ -12,6 +12,8 @@ The sensor data includes readings of pollutants such as *Carbon Monoxide (CO)*, 
 
 Objectives are to detect abnormal changes in the sensor readings and to create short-term forecasts to support planning and public health responses in the simulation.
 
+The complete documentation of the project can be found in `markdown` and `pdf` formats here: [Documentation.md](./_documentation/Documentation.md), [Documentation.pdf](./_documentation/Documentation.pdf)
+
 ## Team members
 
 * Albazzal, Houmam [(🐙 dolorsy)](https://github.com/dolorsy)
