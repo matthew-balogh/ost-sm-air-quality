@@ -54,3 +54,23 @@ High-level view of the online machine learning pipeline.
 | Földvári, Ádám     | ML modeling, Forecasting                            |
 | Lahmar, Abderraouf | Calculation and Combination of Statistics, Database |
 | Nagy, Zsuzsanna    | Dashboarding                                        |
+
+## How to run
+
+To start the entire project stack, simply run:
+
+```bash
+./start-streaming.sh
+```
+
+### What's happening in the script
+
+The `start-streaming.sh` script automates the setup process by performing the following steps:
+
+1. **Starting InfluxDB services**: Launches the InfluxDB core and explorer containers
+2. **Configuring environment variables**: Ensures the `INFLUX_HOST` is properly set in the `.env` file located at `consumer_node/InfluxDB/.env`
+3. **Generating InfluxDB authentication token**: Retrieves the InfluxDB container ID and automatically generates an authentication token using `create_token.sh`, storing it in the `.env` file
+4. **Starting the full stack**: Builds and starts all services using Docker Compose
+
+
+**Important**: In real-life production scenarios, you would use `docker-compose up -d` directly, not the `./start-streaming.sh` script. The script is provided for development convenience only. In production, token management would be handled through proper secrets management and CI/CD pipelines, and the `.env` file would be pre-configured with the necessary credentials before running `docker-compose up -d`.
