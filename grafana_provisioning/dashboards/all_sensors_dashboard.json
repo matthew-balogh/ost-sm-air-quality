@@ -52,7 +52,51 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Relative Humidity  "
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Non Metanic Hydrocarbons (NMCH)  "
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "conμgm3"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Carbon Monoxide (CO)  "
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Temperature  "
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 11,
@@ -83,7 +127,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  CASE \r\n    WHEN topic = 't' THEN 'Temperature'\r\n    WHEN topic = 'rh' THEN 'Humidity'\r\n    WHEN topic = 'ah' THEN 'Absolute Humidity'\r\n    WHEN topic = 'co_gt' THEN 'Carbon Monoxide (CO)'\r\n    WHEN topic = 'c6h6_gt' THEN 'Benzene (C6H6)'\r\n    WHEN topic = 'nmhc_gt' THEN 'NMHC'\r\n    WHEN topic = 'no2_gt' THEN 'Nitrogen Dioxide (NO2)'\r\n    WHEN topic = 'nox_gt' THEN 'Nitrogen Oxides (NOx)'\r\n    WHEN topic = 'pt08_s1_co' THEN 'Tin Oxide (CO)'\r\n    WHEN topic = 'pt08_s2_nmhc' THEN 'Titania (NMHC)'\r\n    WHEN topic = 'pt08_s3_nox' THEN 'Tungsten Oxide (NOx)'\r\n    WHEN topic = 'pt08_s4_no2' THEN 'Tungsten Oxide (NO2)'\r\n    WHEN topic = 'pt08_s5_o3' THEN 'Indium Oxide (O3)'\r\n    ELSE topic \r\n  END as topic, \r\n  value\r\nFROM environment\r\nWHERE $__timeFilter(time)\r\nORDER BY time ASC",
+          "rawSql": "SELECT \r\n  CASE \r\n    WHEN topic = 't' THEN 'Temperature'\r\n    WHEN topic = 'rh' THEN 'Relative Humidity'\r\n    WHEN topic = 'ah' THEN 'Absolute Humidity'\r\n    WHEN topic = 'pt08_s1_co' THEN 'Carbon Monoxide (CO)'\r\n    WHEN topic = 'pt08_s2_nmhc' THEN 'Non Metanic Hydrocarbons (NMCH)'\r\n    WHEN topic = 'pt08_s3_nox' THEN 'Total Nitrogen Oxides (NOx)'\r\n    WHEN topic = 'pt08_s4_no2' THEN 'Nitrogen Dioxide (NO2)'\r\n    WHEN topic = 'pt08_s5_o3' THEN 'Ozone (O3)'\r\n  END as topic, \r\n  value\r\nFROM environment\r\nWHERE $__timeFilter(time)\r\nORDER BY time ASC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -181,7 +225,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n    CASE \r\n    WHEN topic = 't' THEN 'Temperature'\r\n    WHEN topic = 'rh' THEN 'Humidity'\r\n    WHEN topic = 'ah' THEN 'Absolute Humidity'\r\n    WHEN topic = 'co_gt' THEN 'Carbon Monoxide (CO)'\r\n    WHEN topic = 'c6h6_gt' THEN 'Benzene (C6H6)'\r\n    WHEN topic = 'nmhc_gt' THEN 'NMHC'\r\n    WHEN topic = 'no2_gt' THEN 'Nitrogen Dioxide (NO2)'\r\n    WHEN topic = 'nox_gt' THEN 'Nitrogen Oxides (NOx)'\r\n    WHEN topic = 'pt08_s1_co' THEN 'Tin Oxide (CO)'\r\n    WHEN topic = 'pt08_s2_nmhc' THEN 'Titania (NMHC)'\r\n    WHEN topic = 'pt08_s3_nox' THEN 'Tungsten Oxide (NOx)'\r\n    WHEN topic = 'pt08_s4_no2' THEN 'Tungsten Oxide (NO2)'\r\n    WHEN topic = 'pt08_s5_o3' THEN 'Indium Oxide (O3)'\r\n    ELSE topic \r\n  END  as \"Sensor Name\",\r\n  value as \"Total Anomalies\"\r\nFROM anomaly\r\nWHERE (global = 1 OR local = 1)\r\n  AND $__timeFilter(time)\r\nORDER BY value DESC",
+          "rawSql": "SELECT \r\n    CASE \r\n    WHEN topic = 't' THEN 'Temperature'\r\n    WHEN topic = 'rh' THEN 'Relative Humidity'\r\n    WHEN topic = 'ah' THEN 'Absolute Humidity'\r\n    WHEN topic = 'pt08_s1_co' THEN 'Carbon Monoxide (CO)'\r\n    WHEN topic = 'pt08_s2_nmhc' THEN 'Non Metanic Hydrocarbons (NMCH)'\r\n    WHEN topic = 'pt08_s3_nox' THEN 'Total Nitrogen Oxides (NOx)'\r\n    WHEN topic = 'pt08_s4_no2' THEN 'Nitrogen Dioxide (NO2)'\r\n    WHEN topic = 'pt08_s5_o3' THEN 'Ozone (O3)'\r\n    ELSE topic \r\n  END  as \"Sensor Name\",\r\n  value as \"Total Anomalies\"\r\nFROM anomaly\r\nWHERE (global = 1 OR local = 1)\r\n  AND $__timeFilter(time)\r\nORDER BY value DESC",
           "refId": "A",
           "sql": {
             "columns": [
@@ -510,7 +554,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Rel. Humidity (%)"
+              "options": "Relative Humidity (%)"
             },
             "properties": [
               {
@@ -599,7 +643,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  time,\r\n  value as 'Rel. Humidity (%)'\r\nFROM environment\r\nWHERE \r\n  topic = 'rh'\r\n  AND $__timeFilter(time)\r\nORDER BY time ASC",
+          "rawSql": "SELECT \r\n  time,\r\n  value as 'Relative Humidity (%)'\r\nFROM environment\r\nWHERE \r\n  topic = 'rh'\r\n  AND $__timeFilter(time)\r\nORDER BY time ASC",
           "refId": "B",
           "sql": {
             "columns": [
@@ -720,7 +764,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Nitrogen Oxides (NOx)"
+              "options": "Total Nitrogen Oxides (NOx)"
             },
             "properties": [
               {
@@ -760,7 +804,7 @@
             "y": {
               "matcher": {
                 "id": "byName",
-                "options": "Nitrogen Oxides (NOx)"
+                "options": "Total Nitrogen Oxides (NOx)"
               }
             }
           }
@@ -778,7 +822,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  time,\r\n  MAX(CASE WHEN topic = 'co_gt' THEN value END) as \"Carbon Monoxide (CO)\",\r\n  MAX(CASE WHEN topic = 'nox_gt' THEN value END) as \"Nitrogen Oxides (NOx)\"\r\nFROM environment\r\nWHERE \r\n  (topic = 'co_gt' OR topic = 'nox_gt')\r\n  AND value != -200  -- Hibaszűrés\r\n  AND $__timeFilter(time)\r\nGROUP BY time\r\nHAVING \r\n  MAX(CASE WHEN topic = 'co_gt' THEN value END) IS NOT NULL \r\n  AND \r\n  MAX(CASE WHEN topic = 'nox_gt' THEN value END) IS NOT NULL",
+          "rawSql": "SELECT \r\n  time,\r\n  MAX(CASE WHEN topic = 'pt08_s1_co' THEN value END) as \"Carbon Monoxide (CO)\",\r\n  MAX(CASE WHEN topic = 'pt08_s3_nox' THEN value END) as \"Total Nitrogen Oxides (NOx)\"\r\nFROM environment\r\nWHERE \r\n  (topic = 'pt08_s1_co' OR topic = 'pt08_s3_nox')\r\n  AND value != -200  -- Hibaszűrés\r\n  AND $__timeFilter(time)\r\nGROUP BY time\r\nHAVING \r\n  MAX(CASE WHEN topic = 'pt08_s1_co' THEN value END) IS NOT NULL \r\n  AND \r\n  MAX(CASE WHEN topic = 'pt08_s3_nox' THEN value END) IS NOT NULL",
           "refId": "A",
           "sql": {
             "columns": [
@@ -809,12 +853,12 @@
     "list": []
   },
   "time": {
-    "from": "2004-07-17T10:00:00.000Z",
-    "to": "2004-07-18T10:00:00.000Z"
+    "from": "2004-04-18T10:00:00.000Z",
+    "to": "2004-04-19T10:00:00.000Z"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "All sensors dashboard",
   "uid": "adk8wt7",
-  "version": 8
+  "version": 11
 }
