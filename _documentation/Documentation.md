@@ -321,7 +321,16 @@ specifically as **online_pred**.
 
 
 
-###
+### Distribution estimation
+
+To efficiently estimate the distribution of streaming data, we use **t-digest**, an online algorithm optimized for accurate quantile estimation with limited memory. Instead of storing all incoming observations, t-digest compresses the data into a set of **centroids**, each representing a cluster of nearby values.
+
+t-digest is governed by a **compression parameter** `δ`, which controls the maximum number of centroids maintained in the structure. A higher compression value results in more centroids and therefore higher quantile accuracy, particularly near the tails of the distribution, at the cost of slightly increased memory usage. Lower compression values produce a more compact summary but with reduced precision.
+
+As new data points arrive, t-digest incrementally updates or merges centroids according to the compression constraint, ensuring the digest remains small and efficient. This allows real-time estimation of quantiles and other distributional properties without needing to store the entire dataset.
+
+t-digest is thus well-suited for monitoring evolving data streams, detecting changes in distribution behavior, and enabling data-driven decisions in systems where memory and computation are constrained.
+
 ### Trend Analysis
 
 For Trend analysis we adopted an approximative variant of Mann-Kendall (MK) test, which is a **non-parametric statistical test** used to detect the presence of a **monotonic trend** (increasing or decreasing) in a given time series.
@@ -460,6 +469,9 @@ is displayed in
 
 ### Trend Analysis
 
+We applied the Mann–Kendall trend detector to visualize the types of trends present in the data stream. These trend indicators were plotted together with key distributional statistics, such as quantiles, mean, and variance, to provide a comprehensive overview of the data behavior. When a trend occurs, distributional characteristics often evolve: the mean may shift, the variance may increase or decrease depending on the trend’s direction and magnitude, and the quantiles may move, indicating systematic changes across different portions of the distribution. The resulting dashboard supports real-time tracking of these distributional shifts and facilitates the early detection of potential trends within the data stream.
+
+![](../_dashboards/trendanalysis/Overview.png)
 
 ## References
 
@@ -486,4 +498,3 @@ Dunning, T., & Ertl, O. (2021). Computing extremely accurate quantiles using t-d
 
 Manku, G. S., & Motwani, R. (2002). Approximate frequency counts over data streams. Stanford University.
 
-**TODO: reference *T-digest***
