@@ -69,6 +69,5 @@ Before crafting interactive and sophisticated dashboard designs, prototypes were
 
 
 ## Trend detection
+![](trendanalysis/Overview.png)
 
-> [!NOTE]
-> TODO
