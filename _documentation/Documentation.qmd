@@ -165,7 +165,7 @@ The system maintains streaming **Quantile Sketches** (using T-Digest concepts) a
 
 ## Distribution Estimation
 
-To efficiently estimate the distribution of streaming data, we use **t-digest**, an online algorithm optimized for accurate quantile estimation with limited memory. Instead of storing all incoming observations, t-digest compresses the data into a set of **centroids**, each representing a cluster of nearby values.
+To efficiently estimate the distribution of streaming data, we use **t-digest** *Dunning, T., Ertl, O. (2021)*, an online algorithm optimized for accurate quantile estimation with limited memory. Instead of storing all incoming observations, t-digest compresses the data into a set of **centroids**, each representing a cluster of nearby values.
 
 t-digest is governed by a **compression parameter** $\delta$, which controls the maximum number of centroids maintained in the structure. A higher compression value results in more centroids and therefore higher quantile accuracy—particularly near the tails of the distribution—at the cost of increased memory usage. Lower compression values produce a more compact summary but with reduced precision.
 
@@ -176,7 +176,7 @@ t-digest is thus well-suited for monitoring evolving data streams, detecting cha
 
 ## Trend Analysis
 
-For trend analysis, we adopt an approximative variant of the **Mann–Kendall (MK) test**, a **non-parametric statistical test** used to detect the presence of a **monotonic trend** (increasing or decreasing) in a time series.
+For trend analysis, we adopt an approximative variant of the **Mann–Kendall (MK) test** *Kamal, N., & Pachauri, S. (n.d.)*, a **non-parametric statistical test** used to detect the presence of a **monotonic trend** (increasing or decreasing) in a time series.
 
 ### Hypotheses
 
@@ -185,7 +185,6 @@ For trend analysis, we adopt an approximative variant of the **Mann–Kendall (M
 | **$H_0$ (Null)** | There is **no monotonic trend** in the time series. |
 | **$H_a$ (Alternative)** | One of the following: <br> 1. **Upward trend** <br> 2. **Downward trend** <br> 3. **Either trend** |
 
----
 
 ## Why Mann–Kendall?
 
@@ -226,7 +225,7 @@ $$
 \epsilon_{\text{tie}} = \max(\text{moving range} \cdot \text{rel\_tol}, 10^{-8})
 $$
 
-- Tie counts adjust the variance term. A **lossy counting** strategy tracks frequencies efficiently.
+- Tie counts adjust the variance term. A **lossy counting** *Manku, G. S., & Motwani, R. (2002)* strategy tracks frequencies efficiently.
 
 ### 3. Variance and Trend Significance
 
