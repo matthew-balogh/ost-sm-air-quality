@@ -292,7 +292,33 @@ We applied the Mann–Kendall trend detector to visualize the types of trends pr
 
 ![](../_dashboards/trendanalysis/Overview.png)
 
+### Overview Dashboards
 
+This dashboard acts as the primary observability layer for the SCAir-IoT project, aggregating data from the entire sensor network to provide high-level situational awareness.
+
+For real-time system status, the System Overview panel utilizes gauge visualizations to display the most recent readings. It includes environmental factors and key pollutants, allowing users to instantly assess if current values are within expected physical ranges.
+
+The Anomaly Detection & Monitoring section visualizes the outputs of the stream mining algorithms through two key components. A summary panel, 'Sensors by Anomaly Count', highlights the total number of anomalies detected per sensor in the given time window. Alongside this, the 'Anomaly Matrix' serves as a state timeline that temporally tracks the two distinct detection strategies described in the modelling section: "global" outliers and "local" in-window spikes. Red blocks within this heatmap indicate detected anomalies.
+
+The Global Trends section features a multi-line time series chart that aggregates the mean values of all sensors, visualizing daily pollution cycles and long-term trends.
+
+The correlation dashboards are helping to analyze physical and chemical relationships to validate sensor consistency:
+The "Weather Dynamics" chart reveals an inverse pattern where relative humidity drops as temperature rises. This confirms the meteorological principle that warmer air holds more water vapor. Significant divergences from this trend can serve as early indicators for potential sensor faults.
+
+The scatter plot demonstrates a strong linear relationship between Carbon Monoxide (CO) and Nitrogen Oxides (NOx). Their values are rising and falling simultaneously. This clustering confirms a shared emission source, as both pollutants are primary byproducts of combustion engines and fluctuate instantly with traffic flow.
+
+![Overview Dashboard for all sensors I.](../grafana_provisioning/images/all_sensors_dashboard_1.png){#fig-dashb-all_sensors_1}
+
+![Overview Dashboard for all sensors II.](../grafana_provisioning/images/all_sensors_dashboard_2.png){#fig-dashb-all_sensors_2}
+
+
+The Single Sensor Deep Dive dashboard provides an analysis of individual data streams, allowing users to dynamically select specific sensors via the Topic variable. It focuses on validating the statistical modelling and anomaly detection logic.
+
+The dashboard also visualizes the stochastic properties of the data stream. It compares actual readings against calculated Moving Averages and Standard Deviation bands (upper/lower bounds) to visually identify outliers. A Data Distribution chart plots the current value against dynamic quantiles (Min, Q1, Median, Q3, Max), offering a visual representation of the T-digest and IQR-based algorithms used for outlier detection.
+
+The Sensor Health Status timeline tracks specific error states, differentiating between "Data Missing" events and algorithmic "Anomaly Status" flags, while a Frequency Histogram analyzes the distribution of incoming values to detect skewness or sensor drift.
+
+![Overview Dashboard for a single sensor](../grafana_provisioning/images/single_sensor_general.png){#fig-dashb-single_sensor}
 
 \newpage
 ## References
