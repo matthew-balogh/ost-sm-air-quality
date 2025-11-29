@@ -31,7 +31,7 @@
       },
       "id": 7,
       "panels": [],
-      "title": "Global abnormality detector performance",
+      "title": "Global abnormality detector performance (on special labeled anomalies)",
       "type": "row"
     },
     {
@@ -728,7 +728,7 @@
       },
       "id": 6,
       "panels": [],
-      "title": "Local abnormality detector performance",
+      "title": "Local abnormality detector performance (on special labeled anomalies)",
       "type": "row"
     },
     {
@@ -1423,14 +1423,14 @@
     "list": [
       {
         "current": {
-          "text": "t",
-          "value": "t"
+          "text": "pt08_s1_co",
+          "value": "pt08_s1_co"
         },
         "label": "Topic",
         "name": "topic",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "Carbon Monoxide (CO)",
             "value": "pt08_s1_co"
           },
@@ -1455,7 +1455,7 @@
             "value": "pt08_s5_o3"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Temperature",
             "value": "t"
           },
@@ -1476,12 +1476,12 @@
     ]
   },
   "time": {
-    "from": "2004-07-01T13:30:00.000Z",
-    "to": "2004-08-13T21:30:00.000Z"
+    "from": "2004-06-29T00:00:00.000Z",
+    "to": "2004-07-25T23:59:59.000Z"
   },
   "timepicker": {},
   "timezone": "utc",
   "title": "Anomaly Inspector (Evaluation) 2",
   "uid": "ad7l2xx2",
-  "version": 4
+  "version": 5
 }

@@ -91,36 +91,21 @@ class DatabaseWriter(SlidingWindowListener):
 
     def create_pt08_s1_co_true_labels(self):
         topic = "pt08_s1_co"
-        times = [
-            '2004-07-02 08:00:00',
-            '2004-07-02 09:00:00',
-            '2004-07-06 08:00:00',
-            '2004-07-06 09:00:00',
-            '2004-07-07 08:00:00',
-            '2004-07-11 06:00:00',
-            '2004-07-20 07:00:00',
-            '2004-07-20 08:00:00',
-            '2004-07-20 09:00:00',
-            '2004-07-21 08:00:00',
-            '2004-07-22 07:00:00',
-            '2004-07-22 08:00:00',
-            '2004-07-22 09:00:00',
-            '2004-07-27 08:00:00',
-            '2004-07-30 07:00:00',
-            '2004-07-30 09:00:00'
-        ]
 
-        for tr in times:
-            unixTime = int(datetime.strptime(tr, "%Y-%m-%d %H:%M:%S").timestamp() * 1e9)
-            point = {
-                "measurement": "true_labels",  # like your other measurements
-                "tags": {"topic": topic},
-                "fields": {"value": 1.0},  # ensure numeric
-                "time": unixTime
-            }
-            self.client.write(point)
+        with open("InfluxDB/data/true_labels_anomaly_pt08_s1_co.txt", "r") as f:
+            times = [line.strip() for line in f.readlines()]
 
-        print("True labels for pt08_s1_co anomalies were written.")
+            for t in times:
+                unixTime = int(datetime.strptime(t, "%Y-%m-%d %H:%M:%S").timestamp() * 1e9)
+                point = {
+                    "measurement": "true_labels",  # like your other measurements
+                    "tags": {"topic": topic},
+                    "fields": {"value": 1.0},  # ensure numeric
+                    "time": unixTime
+                }
+                self.client.write(point)
+
+        print(f"True labels for {topic} anomalies were written.")
 
     def create_all_measurements(self):
         measurements = ["environment", "anomaly", "trend"]
