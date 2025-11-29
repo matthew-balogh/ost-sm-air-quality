@@ -1,0 +1,368 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "af590qx8lzytcc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "Real values"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Actual reading"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "Forecast H+1"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Horizon 1"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "Forecast H2"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Horizon 2"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "Forecast H3"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Horizon 3"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 17,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "dataset": "iox",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "af590qx8lzytcc"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time, CASE WHEN CAST(value as DOUBLE) = -200 THEN NULL ELSE CAST(value as DOUBLE) END as value\nFROM environment\nWHERE topic = '$topic'\nAND time >= $__timeFrom() AND time <= $__timeTo();",
+          "refId": "Real values",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ]
+          }
+        },
+        {
+          "dataset": "iox",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "af590qx8lzytcc"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT time, `H+1` as value_h1\nFROM forecasting\nWHERE topic = UPPER('$topic')\nAND time >= $__timeFrom() AND time <= $__timeTo();",
+          "refId": "Forecast H+1",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ]
+          }
+        },
+        {
+          "dataset": "iox",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "af590qx8lzytcc"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time, `H+2` as value_h2\nFROM forecasting\nWHERE topic = UPPER('$topic')\nAND time >= $__timeFrom() AND time <= $__timeTo();",
+          "refId": "Forecast H2",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ]
+          }
+        },
+        {
+          "dataset": "iox",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "af590qx8lzytcc"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time, `H+3` as value_h3\nFROM forecasting\nWHERE topic = UPPER('$topic')\nAND time >= $__timeFrom() AND time <= $__timeTo();",
+          "refId": "Forecast H3",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ]
+          }
+        }
+      ],
+      "title": "Forecasting",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "rh",
+          "value": "rh"
+        },
+        "label": "Topic",
+        "name": "topic",
+        "options": [
+          {
+            "selected": false,
+            "text": "Carbon Monoxide (CO)",
+            "value": "pt08_s1_co"
+          },
+          {
+            "selected": false,
+            "text": "Non Metanic Hydrocarbons (NMHC)",
+            "value": "pt08_s2_nmhc"
+          },
+          {
+            "selected": false,
+            "text": "Total Nitrogen Oxides (NOx)",
+            "value": "pt08_s3_nox"
+          },
+          {
+            "selected": false,
+            "text": "Nitrogen Dioxide (NO2)",
+            "value": "pt08_s4_no2"
+          },
+          {
+            "selected": false,
+            "text": "Ozone (O3)",
+            "value": "pt08_s5_o3"
+          },
+          {
+            "selected": false,
+            "text": "Temperature",
+            "value": "t"
+          },
+          {
+            "selected": false,
+            "text": "Absolute Humidity",
+            "value": "ah"
+          },
+          {
+            "selected": true,
+            "text": "Relative Humidity",
+            "value": "rh"
+          }
+        ],
+        "query": "Carbon Monoxide (CO) : pt08_s1_co, Non Metanic Hydrocarbons (NMHC) : pt08_s2_nmhc, Total Nitrogen Oxides (NOx) : pt08_s3_nox, Nitrogen Dioxide (NO2) : pt08_s4_no2, Ozone (O3) : pt08_s5_o3, Temperature : t, Absolute Humidity : ah, Relative Humidity : rh",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "2004-07-13T22:12:03.157Z",
+    "to": "2004-07-17T15:00:01.813Z"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Forecasting",
+  "uid": "adgnpf4",
+  "version": 8
+}

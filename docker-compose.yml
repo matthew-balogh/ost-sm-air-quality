@@ -1,0 +1,133 @@
+services:
+  influxdb3-core:
+    container_name: influxdb3-core
+    image: influxdb:3-core
+    ports:
+      - 8181:8181
+    command:
+      - influxdb3
+      - serve
+      - --node-id=primary-node
+      - --object-store=file
+      - --data-dir=/var/lib/influxdb3/data
+      - --plugin-dir=/var/lib/influxdb3/plugins
+
+  influxdb3-explorer:
+    image: influxdata/influxdb3-ui:1.0.0
+    container_name: influxdb3-explorer
+    ports:
+      - 8888:80
+      - 8889:8888
+    depends_on:
+      influxdb3-core:
+        condition: service_started
+    command: --mode=admin
+
+  kafka:
+    image: apache/kafka:4.1.0
+    hostname: broker
+    container_name: kafka-broker
+    ports:
+      - 9092:9092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:29093
+      KAFKA_LISTENERS: PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/kafka/bin/kafka-topics.sh",
+          "--bootstrap-server",
+          "broker:29092",
+          "--list",
+        ]
+      interval: 5s
+      timeout: 80s
+      retries: 3
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: broker-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:29092
+    depends_on:
+      - kafka
+
+  streamlit:
+    profiles: ["dashboard-prototype"]
+    build:
+      context: .
+      dockerfile: streamlit/Dockerfile
+    container_name: streamlit
+    ports:
+      - 8501:8501
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      kafka:
+        condition: service_healthy
+      influxdb3-core:
+        condition: service_started
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana_provisioning/provisioning:/etc/grafana/provisioning
+      - ./grafana_provisioning/dashboards:/var/lib/grafana/dashboards
+
+  sensors-simulator:
+    build: streamer
+    container_name: sensors-simulator
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+
+  consumer:
+    build:
+      context: consumer_node
+      dockerfile: Dockerfile
+    container_name: consumer
+    depends_on:
+      influxdb3-core:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      WINDOW_COUNT: ${WINDOW_COUNT:-8}
+      # Read from .env file mounted as /app/.env; do not set INFLUX_HOST and INFLUX_TOKEN here
+      INFLUX_DATABASE: "sensor-data"
+    volumes:
+      - ./consumer_node/InfluxDB/.env:/app/.env:ro
+      - ./artifacts:/app/artifacts:ro
+    networks:
+      - default
+
+volumes:
+  grafana_data:
