@@ -318,6 +318,87 @@ specifically as **online_pred**.
     models with different learning rates (e.g., one “fast” learner and
     one “slow” learner) to balance stability and adaptability.
 
+
+
+
+###
+### Trend Analysis
+
+For Trend analysis we adopted an approximative variant of Mann-Kendall (MK) test, which is a **non-parametric statistical test** used to detect the presence of a **monotonic trend** (increasing or decreasing) in a given time series.
+
+---
+#### Hypotheses
+
+| Hypothesis | Description |
+|------------|-------------|
+| **H₀ (Null)** | There is **no monotonic trend** in the time series. |
+| **Hₐ (Alternative)** | One of the following: <br> 1. **Upward monotonic trend** <br> 2. **Downward monotonic trend** <br> 3. **Either upward or downward trend** |
+
+---
+### Why Mann Kandall?
+
+- **Robust to missing data:** Missing points only reduce the sample size, which might affect statistical significance but does not invalidate the test, As in our data some features have a lot of missing measurements. 
+- **No distributional assumption:** The test does not require the data to follow any specific probability distribution, which is unkown in our streaming data.  
+
+### Mann Kandall adaptation
+#### 1. Approximating the Sign Function
+Traditional MK relies on the sign function:
+
+$$
+S = \sum_{i<j} \text{sgn}(x_j - x_i)
+$$
+
+In our online version:
+
+- The **sign function is approximated using the CDF** of the current data, maintained via a **t-Digest**.  
+Intuitively, knowing the $𝑋\%$ quantiles provides information about the relative position of values in the distribution. For example, if a sample lies in the $7\%$ quantile, we can infer that it is smaller than a sample lying in the $15\%$ quantile.
+- Approximation formula:
+$$
+\text{sgn}(x_j - x_i) \approx 2 \cdot \text{CDF}(x_j) - 1
+$$
+
+- This reduces computation and memory requirements while retaining accuracy.
+
+#### 2. Handling Ties
+Our sensor data lies in a continuous space where the features have different scales. For a better and accurate results, we have made some changes to adapt our algorithm to the online continuous scenario.
+
+- Ties occur when values are equal or nearly equal.  
+- A **dynamic margin** (`eps_tie`) based on the **moving range** of observed data ensures proper tie handling by taking into consideration the different features' scales:
+
+$$
+\epsilon_{\text{tie}} = \max(\text{moving range} \cdot \text{rel\_tol}, 10^{-8})
+$$
+
+- Tie counts are used to adjust the variance in statistical calculations, Lossy count was used to calculate the frequency.
+
+
+#### 3. Variance and Trend Significance
+- Variance of `S` accounts for tied groups:
+
+$$
+\text{Var}(S) = \frac{n(n-1)(2n+5) - \sum t(t-1)(2t+5)}{18}
+$$
+
+- Z-score and p-value are computed in real-time:
+
+$$
+Z =
+\begin{cases} 
+\dfrac{S-1}{\sqrt{\text{Var}(S)}} & S>0 \\
+\dfrac{S+1}{\sqrt{\text{Var}(S)}} & S<0 \\
+0 & S=0
+\end{cases}
+$$
+
+- Trend is classified as:
+  - Significant increasing trend  
+  - Significant decreasing trend  
+  - No significant trend  
+
+---
+
+
+
 ## Experiments and testing
 
 ### Anomaly detection
@@ -376,6 +457,10 @@ is displayed in
 <a href="#fig-dashb-forecast" class="quarto-xref">Figure 5</a>.
 
 ![](../_dashboards/forecasting/dshb_grafana_forecast_evaluation_nox.png)
+
+### Trend Analysis
+
+
 ## References
 
 Wares, S., Isaacs, J. and Elyan, E. (2019). Data stream mining: methods
@@ -394,5 +479,11 @@ Available at: https://archive.ics.uci.edu/ml/datasets/Air+Quality
 Müller, M. and Chiu, C.Y., 2024. A basic tutorial on novelty and
 activation functions for music signal processing. Transactions of the
 International Society for Music Information Retrieval, 7(1).
+
+Kamal, N., & Pachauri, S. (n.d.). Mann-Kendall Test – A Novel Approach for Statistical Trend Analysis. Faculty of Computing and Information Technology, Himalayan University, Arunachal Pradesh; Department of CSE/IT, IIMT College of Engineering, Greater Noida, U.P.
+
+Dunning, T., & Ertl, O. (2021). Computing extremely accurate quantiles using t-digests. MapR Technologies, Inc., Santa Clara, CA; Dynatrace, Linz, Austria.
+
+Manku, G. S., & Motwani, R. (2002). Approximate frequency counts over data streams. Stanford University.
 
 **TODO: reference *T-digest***
