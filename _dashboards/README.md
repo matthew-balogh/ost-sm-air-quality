@@ -28,7 +28,7 @@ Before crafting interactive and sophisticated dashboard designs, prototypes were
 
 ## Abnormality (anomaly) inspector
 
-### Predictions
+### Local and global abnormality detection
 
 ![](./anomaly_inspector/dshb_grafana_anomaly_inspector_co.png)
 
@@ -46,10 +46,14 @@ Before crafting interactive and sophisticated dashboard designs, prototypes were
 
 ![](./anomaly_inspector/dshb_grafana_anomaly_inspector_rh.png)
 
-### Performance evaluation
+### Missing value detection
 
-> [!NOTE]
-> TODO
+![](./anomaly_inspector/dshb_grafana_anomaly_inspector_co_missing_values.png)
+
+### Performance evaluation on special labeled anomalies
+
+![](./anomaly_inspector/dshb_grafana_anomaly_inspector_evaluation_co.png)
+
 
 
 ## Forecasting
