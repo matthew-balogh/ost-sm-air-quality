@@ -44,7 +44,56 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pt08_s2_nmhc Current Value"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "conμgm3"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pt08_s1_co Current Value"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "conmgm3"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "t Current Value"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rh Current Value"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 7,
@@ -896,18 +945,18 @@
             "value": "rh"
           }
         ],
-        "query": "Carbon Monoxide (CO) : pt08_s1_co, Non Metanic Hydrocarbons (NMHC) : pt08_s2_nmhc, Total Nitrogen Oxides (NOx) : pt08_s3_nox, Nitrogen Dioxide (NO2) : pt08_s4_no2, Ozone (O3) : pt08_s5_o3, Temperature : t, Absolute Humidity : ah, Relative Humidity : rh",
+        "query": "Carbon Monoxide (CO) : pt08_s1_co,\nNon Metanic Hydrocarbons (NMHC) : pt08_s2_nmhc, \nTotal Nitrogen Oxides (NOx) : pt08_s3_nox, \nNitrogen Dioxide (NO2) : pt08_s4_no2, \nOzone (O3) : pt08_s5_o3, \nTemperature : t, \nAbsolute Humidity : ah, \nRelative Humidity : rh",
         "type": "custom"
       }
     ]
   },
   "time": {
-    "from": "2004-07-17T10:00:00.000Z",
-    "to": "2004-07-18T10:00:00.000Z"
+    "from": "2004-04-18T10:00:00.000Z",
+    "to": "2004-04-19T10:00:00.000Z"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Single Sensor Deep Dive",
   "uid": "adjd2m4",
-  "version": 9
+  "version": 12
 }
