@@ -520,7 +520,7 @@ Manku, G. S., & Motwani, R. (2002). Approximate frequency counts over data strea
 
 Apache Kafka Documentation. Available at: https://kafka.apache.org/documentation/ (Accessed: 25 November 2025).
 
-Apache Spark Documentation. Structured Streaming Programming Guide. Available at: https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html (Accessed: 25 November 2025).
+Apache Spark Documentation. Structured Streaming Programming Guide. Available at: https://spark.apache.org/docs/latest/streaming/index.html (Accessed: 25 November 2025).
 
 Zaharia, M., Das, T., Li, H., Hunter, T., Shenker, S., & Stoica, I. (2016). Discretized streams: Fault-tolerant streaming computation at scale. In Proceedings of the 24th ACM Symposium on Operating Systems Principles (pp. 423-438).
 
