@@ -10,6 +10,9 @@ import java.util.Properties;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.InputStream;
+import java.io.FileReader;
+import java.io.File;
+import java.nio.file.Paths;
 
 public class Main {
     static String topic = "sensor-data";
@@ -38,9 +41,16 @@ public class Main {
         14   // AH
     };
     
+    private static final int[] ANOMALY_SENSOR_INDICES = {0, 1, 2, 3, 4}; // pt08_s1_co, pt08_s2_nmhc, pt08_s3_nox, pt08_s4_no2, pt08_s5_o3
+    
     public static void main(String[] args) {
         int skipLines = 780; // Number of lines to skip
         final String bootstrapServers = System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092");
+        
+        List<String[]> anomaliesData = loadAnomaliesData();
+        if (anomaliesData.isEmpty()) {
+            System.err.println("Warning: Could not load anomalies.csv. Continuing without anomaly injection.");
+        }
         
         // Create Kafka topics first
         createKafkaTopics(bootstrapServers);
@@ -62,6 +72,7 @@ public class Main {
             BufferedReader reader = new BufferedReader(new InputStreamReader(is));
             String line;
             int rowNum = 0;
+            int anomalyIndex = 0;
             // Skip the first 'skipLines' lines
             for (int i = 0; i < skipLines; i++) {
                 reader.readLine();
@@ -71,15 +82,41 @@ public class Main {
                 // Parse CSV line and send each sensor value to its corresponding topic
                 String[] values = line.split(";");
                 if (values.length >= 15) { // Ensure we have enough columns
-                    for (int i = 0; i < SENSOR_TOPICS.length; i++) {
-                        String sensorValue = values[SENSOR_COLUMN_INDICES[i]].trim();
+                    boolean useAnomaly = (rowNum % 10 == 0) && !anomaliesData.isEmpty();
+                    
+                    if (useAnomaly) {
+                        String[] anomalyRow = anomaliesData.get(anomalyIndex % anomaliesData.size());
+                        anomalyIndex++;
+                        
+                        for (int i = 0; i < SENSOR_TOPICS.length; i++) {
+                            String sensorValue;
+                            if (i < ANOMALY_SENSOR_INDICES.length && i < anomalyRow.length) {
+                                sensorValue = anomalyRow[i].trim();
+                                if (sensorValue.isEmpty()) {
+                                    sensorValue = values[SENSOR_COLUMN_INDICES[i]].trim();
+                                }
+                            } else {
+                                sensorValue = values[SENSOR_COLUMN_INDICES[i]].trim();
+                            }
+                            
+                            String key = (values[0] + " " + values[1]);
+                            String message = String.valueOf(Double.parseDouble(sensorValue.replace(',', '.')));
+                            ProducerRecord<String, String> sensorRecord = new ProducerRecord<>(SENSOR_TOPICS[i], key, message);
+                            RecordMetadata metadata = producer.send(sensorRecord).get();
+                            System.out.printf("Sent %s=%s to topic %s partition %d offset %d%s\n", 
+                                SENSOR_TOPICS[i], sensorValue, metadata.topic(), metadata.partition(), metadata.offset(),
+                                (i < ANOMALY_SENSOR_INDICES.length && useAnomaly) ? " [ANOMALY]" : "");
+                        }
+                    } else {
+                        for (int i = 0; i < SENSOR_TOPICS.length; i++) {
+                            String sensorValue = values[SENSOR_COLUMN_INDICES[i]].trim();
                             String key = (values[0] + " " + values[1]);
                             String message = String.valueOf(Double.parseDouble(sensorValue.replace(',', '.')));
                             ProducerRecord<String, String> sensorRecord = new ProducerRecord<>(SENSOR_TOPICS[i], key, message);
                             RecordMetadata metadata = producer.send(sensorRecord).get();
                             System.out.printf("Sent %s=%s to topic %s partition %d offset %d\n", 
                                 SENSOR_TOPICS[i], sensorValue, metadata.topic(), metadata.partition(), metadata.offset());
-
+                        }
                     }
                     producer.flush();
                     Thread.sleep(1000); // 1 second delay between rows
@@ -144,5 +181,55 @@ public class Main {
             System.err.println("Error checking existing topics: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static List<String[]> loadAnomaliesData() {
+        List<String[]> anomalies = new ArrayList<>();
+        try {
+            // Try to find Data/anomalies.csv relative to current working directory
+            String currentDir = System.getProperty("user.dir");
+            String anomaliesPath = Paths.get(currentDir, "Data", "anomalies.csv").toString();
+            File anomaliesFile = new File(anomaliesPath);
+            
+            // If not found, try relative path from project root
+            if (!anomaliesFile.exists()) {
+                anomaliesFile = new File("Data/anomalies.csv");
+            }
+            
+            if (!anomaliesFile.exists() || !anomaliesFile.isFile()) {
+                System.err.println("Could not find Data/anomalies.csv at: " + anomaliesPath);
+                System.err.println("Also tried: Data/anomalies.csv");
+                return anomalies;
+            }
+            
+            System.out.println("Loading anomalies from: " + anomaliesFile.getAbsolutePath());
+            
+            BufferedReader reader = new BufferedReader(new FileReader(anomaliesFile));
+            String line;
+            boolean firstLine = true;
+            
+            while ((line = reader.readLine()) != null) {
+                if (firstLine) {
+                    firstLine = false;
+                    continue;
+                }
+                
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+                
+                String[] values = line.split(";");
+                if (values.length >= 5) {
+                    anomalies.add(values);
+                }
+            }
+            reader.close();
+            
+            System.out.println("Loaded " + anomalies.size() + " anomaly records.");
+        } catch (Exception e) {
+            System.err.println("Error loading anomalies.csv: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return anomalies;
     }
 }
