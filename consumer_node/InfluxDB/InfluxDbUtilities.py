@@ -108,7 +108,7 @@ class DatabaseWriter(SlidingWindowListener):
         print(f"True labels for {topic} anomalies were written.")
 
     def create_all_measurements(self):
-        measurements = ["environment", "anomaly", "trend"]
+        measurements = ["environment", "anomaly", "trend", "drift"]
         for table_name in measurements:
             Measurement_time = "01/01/1970 00.00.01"
             unixTime = int(datetime.strptime(
@@ -154,6 +154,15 @@ class DatabaseWriter(SlidingWindowListener):
                             "value": sample['value'],
                             "S": S_value,
                             "type": type,
+                        }, sample['key'])
+
+    def write_drift(self, sample, topic, novelty_score, window_size):
+        self.write_data("drift", {"topic": topic},
+                        {
+                            "value": sample['value'],
+                            "novelty_score": novelty_score,
+                            "window_size": window_size,
+                            "drift_detected": 1.0,
                         }, sample['key'])
 
 
